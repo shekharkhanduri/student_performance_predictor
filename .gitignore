@@ -4,6 +4,9 @@ outputs/
 # Dataset directory (download from Kaggle and place here)
 data/
 
+# CatBoost training logs
+catboost_info/
+
 # Python
 __pycache__/
 *.py[cod]
