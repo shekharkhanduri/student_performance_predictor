@@ -1,8 +1,9 @@
 # Student Academic Performance Predictor
 
 An end-to-end machine learning system that predicts student academic performance
-scores using an **Ensemble Voting Regressor** combining 5 base models, with
-**SHAP** and **LIME** explainability.
+scores using a **Stacking Ensemble Regressor** combining three non-linear base
+learners (XGBoost, CatBoost, Random Forest) with a **LassoCV meta-learner**,
+plus per-student **SHAP diagnostics** and **LIME** explainability.
 
 ---
 
@@ -13,12 +14,14 @@ scores using an **Ensemble Voting Regressor** combining 5 base models, with
 | Datasets | Dataset 1 (10,000 samples, 6 features) · Dataset 2 (6,607 samples, 20 features) |
 | Preprocessing | Label-encoding, StandardScaler, mode/mean imputation, outlier correction |
 | Feature selection | Pearson correlation heatmap; selected features per specification |
-| Base models | Linear Regression, Ridge, KNN, XGBoost, CatBoost, AdaBoost, Random Forest, SVR, Bagging |
-| Ensemble | `VotingRegressor` (top-5 models, weights optimised via grid search) |
-| Validation | 10-fold cross-validation · paired t-tests vs SVR / XGBoost / CatBoost |
-| Explainability | SHAP global (bar chart + summary dot plot) · LIME local (single-instance bar chart) |
+| Base models | XGBoost, CatBoost, Random Forest (non-linear, diversity-focused) |
+| Ensemble | `StackingRegressor` (cv=5, meta-learner=LassoCV for automatic weight learning) |
+| Validation | Paired t-tests vs. each base learner |
+| Explainability | SHAP global (KernelExplainer, bar chart + summary dot plot) · per-student SHAP diagnostics · LIME local (single-instance) |
+| Risk categorisation | **Stable** (≥ 70) · **Borderline** (60–69) · **At-Risk** (< 60) |
+| Diagnostic output | `predicted_score`, `risk_level`, `top_negative_factors` per student |
 | Visualisations | MAE/RMSE bar chart · R² bar chart · Actual vs Predicted scatter · Correlation heatmap · Pie chart · Line plot · Bar plot |
-| Export | Trained `VotingRegressor` saved with `joblib` |
+| Export | Trained `StackingRegressor` saved with `joblib` |
 
 ---
 
@@ -68,11 +71,11 @@ outputs/
 ├── ds1_all_features_mae_rmse_comparison.png
 ├── ds1_all_features_r2_comparison.png
 ├── ds1_all_features_actual_vs_predicted.png
-├── ds1_all_features_voting_regressor.joblib
+├── ds1_all_features_stacking_regressor.joblib
 ├── ds1_selected_features_mae_rmse_comparison.png
 ├── ds1_selected_features_r2_comparison.png
 ├── ds1_selected_features_actual_vs_predicted.png
-├── ds1_selected_features_voting_regressor.joblib
+├── ds1_selected_features_stacking_regressor.joblib
 ├── ds2_correlation_heatmap.png
 ├── ds2_all_features_shap_bar.png
 ├── ds2_all_features_shap_dot.png
@@ -80,11 +83,11 @@ outputs/
 ├── ds2_all_features_mae_rmse_comparison.png
 ├── ds2_all_features_r2_comparison.png
 ├── ds2_all_features_actual_vs_predicted.png
-├── ds2_all_features_voting_regressor.joblib
+├── ds2_all_features_stacking_regressor.joblib
 ├── ds2_selected_features_mae_rmse_comparison.png
 ├── ds2_selected_features_r2_comparison.png
 ├── ds2_selected_features_actual_vs_predicted.png
-└── ds2_selected_features_voting_regressor.joblib
+└── ds2_selected_features_stacking_regressor.joblib
 ```
 
 ---
@@ -116,23 +119,50 @@ visualised as a heatmap. Per specification:
 Each dataset is evaluated under two conditions: *all features* and
 *selected features only*.
 
-### Voting Regressor
+### Stacking Ensemble
 
-The top-5 models by R² score — **Linear Regression, Ridge, CatBoost, XGBoost,
-Random Forest** — are combined in a `VotingRegressor`. Initial weights
-`[7, 7, 1, 1, 1]` reflect linear models' superior baseline performance.
-Optimal weights are selected by evaluating weighted-average predictions on a
-held-out validation split (no re-training required), choosing from:
-`[7,7,1,1,1]`, `[5,5,2,2,2]`, `[6,6,2,1,1]`, `[8,8,1,1,1]`.
+Three non-linear base learners — **XGBoost, CatBoost, Random Forest** — are
+combined in a `StackingRegressor` with **LassoCV** as the meta-learner.
+LassoCV automatically learns optimal blending weights via L1 regularisation,
+eliminating the need for manual weight grids. 5-fold cross-validation is used
+internally to generate out-of-fold meta-features for training the final
+estimator.
 
-Validation: 10-fold cross-validation (mean MAE / RMSE / R²) and paired
-t-tests against SVR, XGBoost, and CatBoost (significance threshold p < 0.05).
+Validation: paired t-tests of the StackingRegressor against each individual
+base learner (significance threshold p < 0.05).
+
+### Risk Categorisation
+
+Predicted continuous scores are mapped to three discrete risk buckets:
+
+| Risk Level | Score Range | Colour |
+|---|---|---|
+| Stable | ≥ 70 | Green |
+| Borderline | 60 – 69 | Yellow |
+| At-Risk | < 60 | Red |
+
+### Per-Student Diagnostic Output
+
+For each student the `predict_with_diagnostics()` function returns:
+
+```python
+{
+    "predicted_score":      float,         # regression output
+    "risk_level":           str,           # "Stable", "Borderline", "At-Risk"
+    "top_negative_factors": list[str],     # top-3 features dragging score down
+}
+```
+
+SHAP values are computed using `shap.KernelExplainer`, which is compatible with
+any sklearn-compatible model. The three features with the most negative SHAP
+contributions are reported as the top negative factors.
 
 ### Explainability
 
 | Method | Scope | Output |
 |---|---|---|
-| SHAP `PermutationExplainer` | Global (25 test samples) | Bar chart of mean(|SHAP|) · Summary dot plot |
+| SHAP `KernelExplainer` | Global (25 test samples) | Bar chart of mean(|SHAP|) · Summary dot plot |
+| SHAP `KernelExplainer` | Per-student (5 sample students) | `top_negative_factors` in diagnostic dict |
 | LIME `LimeTabularExplainer` | Local (single instance, 5 features) | Feature-contribution bar chart |
 
 ---
@@ -147,3 +177,4 @@ See `requirements.txt`. Key dependencies:
 - `shap >= 0.40`
 - `lime >= 0.2`
 - `matplotlib`, `seaborn`, `scipy`, `joblib`, `pandas`, `numpy`
+

@@ -1,7 +1,8 @@
 """
 Student Academic Performance Prediction System
 ===============================================
-Ensemble Voting Regressor with SHAP and LIME explainability.
+Stacking Ensemble Regressor with per-student SHAP diagnostics and risk
+categorisation.
 
 Datasets:
 - Dataset 1: 10,000 samples, 6 features (Performance_Index as target)
@@ -27,14 +28,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
 
-from sklearn.model_selection import train_test_split, KFold
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.linear_model import LinearRegression, Ridge
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.svm import SVR
+from sklearn.linear_model import LassoCV
 from sklearn.ensemble import (
-    RandomForestRegressor, AdaBoostRegressor,
-    BaggingRegressor, VotingRegressor,
+    RandomForestRegressor,
+    StackingRegressor,
 )
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
@@ -272,26 +271,19 @@ def compute_correlations(
 
 def get_base_models() -> dict:
     return {
-        "LinearRegression": LinearRegression(),
-        "Ridge": Ridge(alpha=1.0, random_state=RANDOM_STATE),
-        "KNN": KNeighborsRegressor(n_neighbors=5),
         "XGBoost": xgb.XGBRegressor(
-            n_estimators=100, max_depth=3, learning_rate=0.1,
-            min_child_weight=1, gamma=0, subsample=0.8,
+            n_estimators=200, max_depth=4, learning_rate=0.05,
+            min_child_weight=3, gamma=0.1, subsample=0.8,
+            colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0,
             random_state=RANDOM_STATE, verbosity=0,
         ),
         "CatBoost": CatBoostRegressor(
-            iterations=100, random_seed=RANDOM_STATE, verbose=0,
-        ),
-        "AdaBoost": AdaBoostRegressor(
-            n_estimators=100, random_state=RANDOM_STATE,
+            iterations=200, depth=6, learning_rate=0.05,
+            l2_leaf_reg=3.0, random_seed=RANDOM_STATE, verbose=0,
         ),
         "RandomForest": RandomForestRegressor(
-            n_estimators=100, random_state=RANDOM_STATE, n_jobs=-1,
-        ),
-        "SVR": SVR(kernel="rbf", C=1.0, epsilon=0.1),
-        "Bagging": BaggingRegressor(
-            n_estimators=50, random_state=RANDOM_STATE, n_jobs=-1,
+            n_estimators=200, max_depth=10, min_samples_leaf=3,
+            max_features=0.8, random_state=RANDOM_STATE, n_jobs=-1,
         ),
     }
 
@@ -301,7 +293,7 @@ def train_and_evaluate_all(
     X_test: np.ndarray, y_test: np.ndarray,
     label: str = "",
 ) -> dict:
-    """Train all 9 base models; return results dict."""
+    """Train all base models; return results dict."""
     models = get_base_models()
     results = {}
     _flush(f"\n{'='*60}")
@@ -323,86 +315,42 @@ def train_and_evaluate_all(
     return results
 
 
-# ─────────────────────────── Voting Regressor ─────────────────────────────────
+# ─────────────────────────── Stacking Ensemble ────────────────────────────────
 
-# Top-5 models and initial weights per specification
-_TOP5 = ["LinearRegression", "Ridge", "CatBoost", "XGBoost", "RandomForest"]
-_WEIGHTS_GRID = [
-    [7, 7, 1, 1, 1],
-    [5, 5, 2, 2, 2],
-    [6, 6, 2, 1, 1],
-    [8, 8, 1, 1, 1],
-]
-
-
-def optimize_voting_weights(
-    base_results: dict,
-    X_val: np.ndarray,
-    y_val: np.ndarray,
-    top5_names: list,
-) -> list:
+def build_stacking_regressor() -> StackingRegressor:
     """
-    Select best weights by evaluating weighted averages of already-fitted
-    base model predictions on a held-out validation set.
-    No re-fitting required → fast grid search.
+    Build a StackingRegressor with XGBoost, CatBoost and RandomForest as
+    base learners and LassoCV as the meta-learner.  LassoCV automatically
+    learns optimal combination weights and performs feature selection via
+    L1 regularisation, eliminating the need for manual weight tuning.
+    5-fold cross-validation is used internally to generate out-of-fold
+    meta-features for training the final estimator.
     """
-    _flush("\n  Optimizing VotingRegressor weights (fast grid search) …")
-    preds = {
-        n: base_results[n]["model"].predict(X_val) for n in top5_names
-    }
-    best_rmse, best_w = np.inf, _WEIGHTS_GRID[0]
-    n_models = len(top5_names)
-    for w in _WEIGHTS_GRID:
-        w_arr = np.array(w[:n_models], dtype=float)
-        w_arr /= w_arr.sum()
-        y_hat = sum(w_arr[i] * preds[top5_names[i]] for i in range(n_models))
-        rmse = np.sqrt(mean_squared_error(y_val, y_hat))
-        if rmse < best_rmse:
-            best_rmse, best_w = rmse, w
-    _flush(f"  Best weights: {best_w}  (val RMSE={best_rmse:.4f})")
-    return best_w
-
-
-def cross_validate_voting_regressor(
-    estimators: list,
-    weights: list,
-    X: np.ndarray,
-    y: np.ndarray,
-    n_splits: int = 10,
-) -> tuple:
-    """10-fold CV on VotingRegressor; returns (mean MAE, RMSE, R²)."""
-    _flush(f"\n  {n_splits}-Fold Cross-Validation …")
-    kf = KFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE)
-    maes, rmses, r2s = [], [], []
-    for fold, (tr_idx, te_idx) in enumerate(kf.split(X), 1):
-        vr = VotingRegressor(estimators=estimators, weights=weights)
-        vr.fit(X[tr_idx], y[tr_idx])
-        yp = vr.predict(X[te_idx])
-        maes.append(mean_absolute_error(y[te_idx], yp))
-        rmses.append(np.sqrt(mean_squared_error(y[te_idx], yp)))
-        r2s.append(r2_score(y[te_idx], yp))
-    _flush(
-        f"  {n_splits}-Fold CV — "
-        f"MAE: {np.mean(maes):.4f}±{np.std(maes):.4f}  "
-        f"RMSE: {np.mean(rmses):.4f}±{np.std(rmses):.4f}  "
-        f"R²: {np.mean(r2s):.4f}±{np.std(r2s):.4f}"
+    base_estimators = [
+        (name, model) for name, model in get_base_models().items()
+    ]
+    return StackingRegressor(
+        estimators=base_estimators,
+        final_estimator=LassoCV(cv=5, random_state=RANDOM_STATE),
+        cv=5,
+        passthrough=False,
+        n_jobs=-1,
     )
-    return np.mean(maes), np.mean(rmses), np.mean(r2s)
 
 
 def paired_t_tests(
-    vr: VotingRegressor,
+    model,
     base_results: dict,
     compare_names: list,
     X_test: np.ndarray,
     y_test: np.ndarray,
 ) -> None:
-    """Paired t-tests: VotingRegressor vs. selected baselines."""
-    vr_errors = np.abs(vr.predict(X_test) - y_test)
-    _flush("\n  Paired t-tests (VotingRegressor vs. baselines):")
+    """Paired t-tests: StackingRegressor vs. selected baselines."""
+    model_errors = np.abs(model.predict(X_test) - y_test)
+    _flush("\n  Paired t-tests (StackingRegressor vs. baselines):")
     for name in compare_names:
         base_errors = np.abs(base_results[name]["y_pred"] - y_test)
-        t_stat, p_val = stats.ttest_rel(vr_errors, base_errors)
+        t_stat, p_val = stats.ttest_rel(model_errors, base_errors)
         sig = "✓ significant" if p_val < 0.05 else "✗ not significant"
         _flush(f"  vs {name:<20} t={t_stat:>8.4f}  p={p_val:.4f}  {sig}")
 
@@ -410,25 +358,30 @@ def paired_t_tests(
 # ─────────────────────────── Explainability ───────────────────────────────────
 
 def shap_explainability(
-    vr: VotingRegressor,
+    model,
     X_bg: np.ndarray,
     X_explain: np.ndarray,
     feature_names: list,
     output_prefix: str,
     n_bg: int = 50,
     n_explain: int = 30,
-) -> None:
+    explainer=None,
+) -> "shap.KernelExplainer":
     """
-    SHAP global explainability using PermutationExplainer with
-    small background and explanation sets for reasonable runtime.
+    Global SHAP explainability using KernelExplainer, which is compatible
+    with any sklearn-compatible model including StackingRegressor.
     Produces: bar chart of mean(|SHAP|) and summary dot plot.
+
+    If *explainer* is provided it will be reused; otherwise a new
+    KernelExplainer is built from X_bg[:n_bg].  The (possibly new)
+    explainer is returned so callers can reuse it for per-student analysis.
     """
     _flush("\n  Computing SHAP values …")
-    bg = shap.maskers.Independent(X_bg[:n_bg])
-    explainer = shap.PermutationExplainer(vr.predict, bg)
-    sv = explainer(X_explain[:n_explain])
-
-    mean_abs = np.abs(sv.values).mean(axis=0)
+    if explainer is None:
+        explainer = shap.KernelExplainer(model.predict, X_bg[:n_bg])
+    sv = explainer.shap_values(X_explain[:n_explain], nsamples=100)
+    sv_array = np.array(sv)
+    mean_abs = np.abs(sv_array).mean(axis=0)
     sorted_idx = np.argsort(mean_abs)[::-1]
     fn_arr = np.array(feature_names)
 
@@ -447,17 +400,18 @@ def shap_explainability(
 
     # Summary dot plot
     shap.summary_plot(
-        sv.values, X_explain[:n_explain],
+        sv_array, X_explain[:n_explain],
         feature_names=feature_names, show=False,
     )
     dot_path = f"{output_prefix}_shap_dot.png"
     plt.savefig(dot_path, dpi=100, bbox_inches="tight")
     plt.close()
     _flush(f"  Saved SHAP dot plot → {dot_path}")
+    return explainer
 
 
 def lime_explainability(
-    vr: VotingRegressor,
+    model,
     X_train: np.ndarray,
     X_test: np.ndarray,
     feature_names: list,
@@ -473,7 +427,7 @@ def lime_explainability(
     )
     exp = explainer.explain_instance(
         X_test[0],
-        vr.predict,
+        model.predict,
         num_features=min(5, len(feature_names)),
     )
     fig = exp.as_pyplot_figure()
@@ -485,12 +439,90 @@ def lime_explainability(
     _flush(f"  Saved LIME explanation → {lime_path}")
 
 
+# ─────────────────────────── Risk & Per-Student Diagnostics ───────────────────
+
+def categorize_risk(score: float) -> str:
+    """
+    Map a predicted continuous score to a discrete risk bucket.
+
+    Returns
+    -------
+    "Stable"     — score ≥ 70  (green)
+    "Borderline" — 60 ≤ score < 70  (yellow)
+    "At-Risk"    — score < 60  (red)
+    """
+    if score >= 70:
+        return "Stable"
+    elif score >= 60:
+        return "Borderline"
+    else:
+        return "At-Risk"
+
+
+def predict_with_diagnostics(
+    model,
+    student_features: np.ndarray,
+    feature_names: list,
+    shap_explainer,
+) -> dict:
+    """
+    Predict the performance score for a single student and return a
+    diagnostic dictionary containing:
+
+        {
+            "predicted_score":      float,
+            "risk_level":           str,   # "Stable", "Borderline", "At-Risk"
+            "top_negative_factors": list[str]  # top-3 features dragging score down
+        }
+
+    Parameters
+    ----------
+    model            : fitted StackingRegressor (or any sklearn regressor)
+    student_features : 1-D or 2-D array of shape (n_features,) or (1, n_features)
+    feature_names    : list of feature name strings
+    shap_explainer   : pre-built shap.KernelExplainer fitted on background data
+    """
+    if student_features.ndim == 1:
+        student_features = student_features.reshape(1, -1)
+
+    predicted_score = float(model.predict(student_features)[0])
+    risk_level = categorize_risk(predicted_score)
+
+    # Per-student SHAP values via the pre-built KernelExplainer
+    sv = shap_explainer.shap_values(student_features, nsamples=100)
+    sv_flat = np.array(sv).flatten()
+
+    # Identify features with negative SHAP contributions (dragging score down)
+    neg_mask = sv_flat < 0
+    if neg_mask.any():
+        neg_idx = np.where(neg_mask)[0]
+        # Sort by most negative first; if fewer than 3 negative factors exist,
+        # pad with the least-positive ones (smallest lift) so we always return 3.
+        top_neg_idx = neg_idx[np.argsort(sv_flat[neg_idx])]
+        if len(top_neg_idx) < 3:
+            pos_idx = np.where(~neg_mask)[0]
+            pad = pos_idx[np.argsort(sv_flat[pos_idx])]
+            top_neg_idx = np.concatenate([top_neg_idx, pad])
+        top_neg_idx = top_neg_idx[:3]
+    else:
+        # No negative factors — return the least positive (smallest lift)
+        top_neg_idx = np.argsort(sv_flat)[:3]
+
+    top_negative_factors = [feature_names[i] for i in top_neg_idx]
+
+    return {
+        "predicted_score": round(predicted_score, 4),
+        "risk_level": risk_level,
+        "top_negative_factors": top_negative_factors,
+    }
+
+
 # ─────────────────────────── Visualizations ───────────────────────────────────
 
 def plot_mae_rmse_comparison(
     base_results: dict, vr_mae: float, vr_rmse: float, output_path: str
 ) -> None:
-    names = list(base_results) + ["VotingRegressor"]
+    names = list(base_results) + ["StackingRegressor"]
     maes = [base_results[n]["MAE"] for n in base_results] + [vr_mae]
     rmses = [base_results[n]["RMSE"] for n in base_results] + [vr_rmse]
     x = np.arange(len(names))
@@ -512,7 +544,7 @@ def plot_mae_rmse_comparison(
 def plot_r2_comparison(
     base_results: dict, vr_r2: float, output_path: str
 ) -> None:
-    names = list(base_results) + ["VotingRegressor"]
+    names = list(base_results) + ["StackingRegressor"]
     r2s = [base_results[n]["R2"] for n in base_results] + [vr_r2]
     best_idx = int(np.argmax(r2s))
     colors = ["steelblue"] * len(r2s)
@@ -600,7 +632,7 @@ def print_summary_table(
     label: str,
 ) -> None:
     all_r2 = {n: base_results[n]["R2"] for n in base_results}
-    all_r2["VotingRegressor"] = vr_r2
+    all_r2["StackingRegressor"] = vr_r2
     best = max(all_r2, key=all_r2.get)
 
     _flush(f"\n{'─'*65}")
@@ -614,9 +646,9 @@ def print_summary_table(
             f"{base_results[name]['RMSE']:>10.4f} "
             f"{base_results[name]['R2']:>10.4f}{marker}"
         )
-    vr_marker = " ◄ BEST" if "VotingRegressor" == best else ""
+    vr_marker = " ◄ BEST" if "StackingRegressor" == best else ""
     _flush(
-        f"  {'VotingRegressor':<22} {vr_mae:>10.4f} "
+        f"  {'StackingRegressor':<22} {vr_mae:>10.4f} "
         f"{vr_rmse:>10.4f} {vr_r2:>10.4f}{vr_marker}"
     )
     _flush(f"{'─'*65}")
@@ -637,6 +669,10 @@ def run_pipeline(
     Run full pipeline for one dataset under two conditions:
       (a) all features
       (b) selected features only
+
+    Each condition trains a StackingRegressor (XGBoost + CatBoost +
+    RandomForest base learners, LassoCV meta-learner) and generates
+    per-student diagnostic predictions with SHAP-based risk assessments.
     """
     results_summary = {}
     feat_idx = {name: i for i, name in enumerate(feature_names_all)}
@@ -659,79 +695,128 @@ def run_pipeline(
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=RANDOM_STATE
         )
-        # Small validation set (from training) for fast weight selection
-        X_tr, X_val, y_tr, y_val = train_test_split(
-            X_train, y_train, test_size=0.15, random_state=RANDOM_STATE
-        )
 
         # ── Base models ───────────────────────────────────────────────────
         base_results = train_and_evaluate_all(
             X_train, y_train, X_test, y_test, label=cond_label
         )
 
-        # ── Voting Regressor ──────────────────────────────────────────────
-        best_w = optimize_voting_weights(base_results, X_val, y_val, _TOP5)
-        estimators = [(n, base_results[n]["model"]) for n in _TOP5]
-        vr = VotingRegressor(estimators=estimators, weights=best_w)
-        vr.fit(X_train, y_train)
+        # ── Stacking Regressor ────────────────────────────────────────────
+        _flush("\n  Training StackingRegressor (cv=5, meta-learner=LassoCV) …")
+        stacking_regressor = build_stacking_regressor()
+        stacking_regressor.fit(X_train, y_train)
 
-        vr_preds = vr.predict(X_test)
-        vr_mae = mean_absolute_error(y_test, vr_preds)
-        vr_rmse = np.sqrt(mean_squared_error(y_test, vr_preds))
-        vr_r2 = r2_score(y_test, vr_preds)
+        sr_preds = stacking_regressor.predict(X_test)
+        sr_mae = mean_absolute_error(y_test, sr_preds)
+        sr_rmse = np.sqrt(mean_squared_error(y_test, sr_preds))
+        sr_r2 = r2_score(y_test, sr_preds)
         _flush(
-            f"\n  VotingRegressor: "
-            f"MAE={vr_mae:.4f}  RMSE={vr_rmse:.4f}  R²={vr_r2:.4f}"
-        )
-
-        # ── 10-fold CV ────────────────────────────────────────────────────
-        cross_validate_voting_regressor(
-            estimators, best_w, X, y, n_splits=n_cv_splits
+            f"\n  StackingRegressor: "
+            f"MAE={sr_mae:.4f}  RMSE={sr_rmse:.4f}  R²={sr_r2:.4f}"
         )
 
         # ── Paired t-tests ────────────────────────────────────────────────
         paired_t_tests(
-            vr, base_results, ["SVR", "XGBoost", "CatBoost"],
+            stacking_regressor, base_results,
+            list(base_results.keys()),
             X_test, y_test,
         )
 
         # ── Explainability (all-features condition only) ──────────────────
+        # Build the KernelExplainer once; reuse it for per-student diagnostics
+        # to avoid redundant explainer initialisation.
+        _flush("\n  Building KernelExplainer (background = 50 training samples) …")
+        kernel_explainer = shap.KernelExplainer(
+            stacking_regressor.predict, X_train[:50]
+        )
         if condition == "all_features":
             shap_explainability(
-                vr, X_train, X_test, fn, cond_prefix,
-                n_bg=50, n_explain=25,
+                stacking_regressor, X_train, X_test, fn, cond_prefix,
+                n_bg=50, n_explain=25, explainer=kernel_explainer,
             )
-            lime_explainability(vr, X_train, X_test, fn, cond_prefix)
+            lime_explainability(
+                stacking_regressor, X_train, X_test, fn, cond_prefix
+            )
+
+        # ── Per-student diagnostics (sample of 5 test students) ──────────
+        n_sample = min(5, len(X_test))
+        X_sample = X_test[:n_sample]
+
+        # Batch-compute SHAP values for all sample students at once for
+        # efficiency, then split into per-student arrays.
+        _flush(f"\n  Computing per-student SHAP values (batch of {n_sample}) …")
+        batch_sv = np.array(
+            kernel_explainer.shap_values(X_sample, nsamples=100)
+        )
+
+        _flush(
+            f"\n  {'#':<4} {'Score':>8}  {'Risk':<12}  Top Negative Factors"
+        )
+        _flush(f"  {'-'*70}")
+        diagnostics = []
+        for i in range(n_sample):
+            # Reuse pre-computed SHAP row; wrap in a thin explainer proxy so
+            # predict_with_diagnostics does not re-compute.
+            sv_row = batch_sv[i] if batch_sv.ndim == 2 else batch_sv[:, i]
+
+            predicted_score = float(stacking_regressor.predict(X_sample[i:i+1])[0])
+            risk_level = categorize_risk(predicted_score)
+            sv_flat = np.array(sv_row).flatten()
+
+            neg_mask = sv_flat < 0
+            if neg_mask.any():
+                neg_idx = np.where(neg_mask)[0]
+                top_neg_idx = neg_idx[np.argsort(sv_flat[neg_idx])]
+                if len(top_neg_idx) < 3:
+                    pos_idx = np.where(~neg_mask)[0]
+                    pad = pos_idx[np.argsort(sv_flat[pos_idx])]
+                    top_neg_idx = np.concatenate([top_neg_idx, pad])
+                top_neg_idx = top_neg_idx[:3]
+            else:
+                top_neg_idx = np.argsort(sv_flat)[:3]
+
+            diag = {
+                "predicted_score": round(predicted_score, 4),
+                "risk_level": risk_level,
+                "top_negative_factors": [fn[j] for j in top_neg_idx],
+            }
+            diagnostics.append(diag)
+            factors_str = ", ".join(diag["top_negative_factors"])
+            _flush(
+                f"  {i + 1:<4} {diag['predicted_score']:>8.2f}"
+                f"  {diag['risk_level']:<12}  {factors_str}"
+            )
 
         # ── Plots ─────────────────────────────────────────────────────────
         plot_mae_rmse_comparison(
-            base_results, vr_mae, vr_rmse,
+            base_results, sr_mae, sr_rmse,
             f"{cond_prefix}_mae_rmse_comparison.png",
         )
         plot_r2_comparison(
-            base_results, vr_r2,
+            base_results, sr_r2,
             f"{cond_prefix}_r2_comparison.png",
         )
         plot_actual_vs_predicted(
-            y_test, vr_preds,
+            y_test, sr_preds,
             f"Actual vs. Predicted — {cond_label}",
             f"{cond_prefix}_actual_vs_predicted.png",
         )
 
         # ── Summary table ─────────────────────────────────────────────────
-        print_summary_table(base_results, vr_mae, vr_rmse, vr_r2, cond_label)
+        print_summary_table(base_results, sr_mae, sr_rmse, sr_r2, cond_label)
 
         # ── Export model ──────────────────────────────────────────────────
-        model_path = f"{cond_prefix}_voting_regressor.joblib"
-        joblib.dump(vr, model_path)
-        _flush(f"\n  Exported VotingRegressor → {model_path}")
+        model_path = f"{cond_prefix}_stacking_regressor.joblib"
+        joblib.dump(stacking_regressor, model_path)
+        _flush(f"\n  Exported StackingRegressor → {model_path}")
 
         results_summary[condition] = {
             "base_results": base_results,
-            "vr": vr,
-            "vr_mae": vr_mae,
-            "vr_rmse": vr_rmse,
-            "vr_r2": vr_r2,
+            "stacking_regressor": stacking_regressor,
+            "sr_mae": sr_mae,
+            "sr_rmse": sr_rmse,
+            "sr_r2": sr_r2,
+            "diagnostics_sample": diagnostics,
         }
 
     return results_summary
