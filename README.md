@@ -5,6 +5,9 @@ scores using a **Stacking Ensemble Regressor** combining three non-linear base
 learners (XGBoost, CatBoost, Random Forest) with a **LassoCV meta-learner**,
 plus per-student **SHAP diagnostics** and **LIME** explainability.
 
+Now includes a **Faculty Student Diagnostic System** — a full-stack web
+application with a **FastAPI** backend and a **Streamlit** dashboard.
+
 ---
 
 ## Features
@@ -22,6 +25,9 @@ plus per-student **SHAP diagnostics** and **LIME** explainability.
 | Diagnostic output | `predicted_score`, `risk_level`, `top_negative_factors` per student |
 | Visualisations | MAE/RMSE bar chart · R² bar chart · Actual vs Predicted scatter · Correlation heatmap · Pie chart · Line plot · Bar plot |
 | Export | Trained `StackingRegressor` saved with `joblib` |
+| Backend | FastAPI REST API with CSV upload, per-student retrieval, single-student prediction |
+| Frontend | Streamlit dashboard with Global Pulse, Student Discovery, Diagnostic Report, Manual Entry |
+| Database | PostgreSQL (Neon) via SQLAlchemy — stores all features, predictions, and SHAP explanations |
 
 ---
 
@@ -52,6 +58,80 @@ python student_performance_predictor.py
 ```
 
 All plots and trained models are saved in the `outputs/` directory.
+
+---
+
+## Faculty Student Diagnostic System
+
+### Architecture
+
+```
+backend/          FastAPI REST API
+  main.py         Endpoints: /upload, /student/{id}, /students, /predict, /health
+  database.py     SQLAlchemy + Neon PostgreSQL
+  models.py       StudentData ORM model
+  schemas.py      Pydantic request/response schemas
+  ml_utils.py     Model loading, preprocessing, SHAP inference
+
+frontend/
+  app.py          Streamlit dashboard (4 pages)
+
+run.py            Convenience launcher
+```
+
+### 4. Start the backend
+
+```bash
+# Requires outputs/ds2_all_features_stacking_regressor.joblib (step 3 above)
+python run.py backend
+# API docs: http://localhost:8000/docs
+```
+
+Set the database URL via environment variable if needed:
+```bash
+export DATABASE_URL="postgresql://user:pass@host/dbname?sslmode=require"
+```
+
+### 5. Start the Streamlit dashboard
+
+```bash
+python run.py frontend
+# Dashboard: http://localhost:8501
+```
+
+Or start both together:
+```bash
+python run.py both
+```
+
+### Dashboard Pages
+
+| Page | Description |
+|---|---|
+| 🏠 Global Pulse | Class Health Index gauge, Intervention Alert, score histogram |
+| 🔍 Student Discovery | Searchable/filterable student table with risk badges |
+| 📋 Diagnostic Report | SHAP waterfall, score gauge, intervention simulator |
+| ✏️ Manual Entry | Single-student form with real-time prediction |
+
+### API Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/upload` | Upload CSV; validate columns, predict all rows, store in DB |
+| `GET` | `/student/{id}` | Full diagnostic JSON for one student |
+| `GET` | `/students` | Paginated list of all stored students |
+| `POST` | `/predict` | Single student JSON prediction |
+| `GET` | `/health` | Health check + model status |
+
+### Required CSV Columns (Dataset 2)
+
+```
+Hours_Studied, Attendance, Gender, Parental_Involvement, Access_to_Resources,
+Extracurricular_Activities, Sleep_Hours, Previous_Scores, Motivation_Level,
+Internet_Access, Tutoring_Sessions, Family_Income, Teacher_Quality, School_Type,
+Peer_Influence, Physical_Activity, Learning_Disabilities, Parental_Education_Level,
+Distance_from_Home
+```
 
 ---
 
