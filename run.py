@@ -7,7 +7,7 @@ Usage
 Start the FastAPI backend (default port 8000):
     python run.py backend
 
-Start the Streamlit frontend (default port 8501):
+Start the React+Vite frontend (default port 5173):
     python run.py frontend
 
 Start both in separate processes:
@@ -16,6 +16,7 @@ Start both in separate processes:
 
 import subprocess
 import sys
+import os
 
 
 def start_backend():
@@ -33,14 +34,12 @@ def start_backend():
 
 
 def start_frontend():
-    print("Starting Streamlit frontend on http://0.0.0.0:8501 …")
+    print("Starting React+Vite frontend on http://localhost:5173 …")
+    print("(Make sure dependencies are installed: cd frontend && npm install)")
+    frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
     subprocess.run(
-        [
-            sys.executable, "-m", "streamlit", "run",
-            "frontend/app.py",
-            "--server.address", "0.0.0.0",
-            "--server.port", "8501",
-        ],
+        ["npm", "run", "dev"],
+        cwd=frontend_dir,
         check=True,
     )
 

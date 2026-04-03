@@ -6,7 +6,7 @@ learners (XGBoost, CatBoost, Random Forest) with a **LassoCV meta-learner**,
 plus per-student **SHAP diagnostics** and **LIME** explainability.
 
 Now includes a **Faculty Student Diagnostic System** — a full-stack web
-application with a **FastAPI** backend and a **Streamlit** dashboard.
+application with a **FastAPI** backend and a **React + Vite** dashboard.
 
 ---
 
@@ -26,7 +26,7 @@ application with a **FastAPI** backend and a **Streamlit** dashboard.
 | Visualisations | MAE/RMSE bar chart · R² bar chart · Actual vs Predicted scatter · Correlation heatmap · Pie chart · Line plot · Bar plot |
 | Export | Trained `StackingRegressor` saved with `joblib` |
 | Backend | FastAPI REST API with CSV upload, per-student retrieval, single-student prediction |
-| Frontend | Streamlit dashboard with Global Pulse, Student Discovery, Diagnostic Report, Manual Entry |
+| Frontend | React 18 + Vite dashboard with CSV upload, manual prediction, and risk diagnostics |
 | Database | PostgreSQL (Neon) via SQLAlchemy — stores all features, predictions, and SHAP explanations |
 
 ---
@@ -66,23 +66,44 @@ All plots and trained models are saved in the `outputs/` directory.
 ### Architecture
 
 ```
-backend/          FastAPI REST API
-  main.py         Endpoints: /upload, /student/{id}, /students, /predict, /health
-  database.py     SQLAlchemy + Neon PostgreSQL
-  models.py       StudentData ORM model
-  schemas.py      Pydantic request/response schemas
-  ml_utils.py     Model loading, preprocessing, SHAP inference
+backend/                 FastAPI backend package
+  main.py                App bootstrap + middleware + router registration
+  api/routers/           Endpoint modules
+    health.py            /health
+    students.py          /upload, /student/{id}, /students, /predict
+  core/                  Infrastructure
+    config.py            Environment-driven config (DATABASE_URL, model/scaler paths)
+    database.py          SQLAlchemy engine/session/base
+  models/student.py      StudentData ORM model
+  schemas/prediction.py  Pydantic request/response schemas
+  services/              Business logic
+    ml_service.py        Model loading, preprocessing, SHAP inference
+    student_service.py   DB mapping/storage helpers
 
-frontend/
-  app.py          Streamlit dashboard (4 pages)
+frontend/                React + Vite dashboard
+  src/
+    main.jsx             React bootstrap
+    App.jsx              Main layout (split: upload/predict + list/details)
+    styles.css           Unified dark theme
+    lib/api.js           API client helpers
+    components/          Reusable React components
+      Header.jsx         Status bar + API health
+      StatsPanel.jsx     4 metric cards
+      UploadPanel.jsx    CSV uploader
+      StudentsTable.jsx  Student list with risk badges
+      StudentDetails.jsx SHAP diagnostics
+      PredictionForm.jsx Manual entry form
+  package.json           Frontend dependencies
+  vite.config.js         Vite bundler config
+  index.html             HTML entry point
 
-run.py            Convenience launcher
+run.py                   Convenience launcher (backend/frontend/both)
 ```
 
 ### 4. Start the backend
 
 ```bash
-# Requires outputs/ds2_all_features_stacking_regressor.joblib (step 3 above)
+# Requires backend/mlmodel/model_ds2.joblib and backend/mlmodel/scaler_ds2.joblib (step 3 above)
 python run.py backend
 # API docs: http://localhost:8000/docs
 ```
@@ -92,11 +113,19 @@ Set the database URL via environment variable if needed:
 export DATABASE_URL="postgresql://user:pass@host/dbname?sslmode=require"
 ```
 
-### 5. Start the Streamlit dashboard
+### 5. Install frontend dependencies (one-time)
+
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+### 6. Start the React dashboard
 
 ```bash
 python run.py frontend
-# Dashboard: http://localhost:8501
+# Dashboard: http://localhost:5173
 ```
 
 Or start both together:
@@ -104,14 +133,16 @@ Or start both together:
 python run.py both
 ```
 
-### Dashboard Pages
+### Dashboard Features
 
-| Page | Description |
+| Feature | Description |
 |---|---|
-| 🏠 Global Pulse | Class Health Index gauge, Intervention Alert, score histogram |
-| 🔍 Student Discovery | Searchable/filterable student table with risk badges |
-| 📋 Diagnostic Report | SHAP waterfall, score gauge, intervention simulator |
-| ✏️ Manual Entry | Single-student form with real-time prediction |
+| Status Bar | API health + model readiness indicators |
+| Statistics | Total students, average score, at-risk count, borderline count |
+| CSV Upload | Drag-and-drop or click to upload; real-time processing feedback |
+| Manual Prediction | Single-student form with 19 features + instant persistence |
+| Student List | Searchable/sortable table with risk badges |
+| Diagnostics | SHAP factors, predicted score, risk categorization |
 
 ### API Endpoints
 
