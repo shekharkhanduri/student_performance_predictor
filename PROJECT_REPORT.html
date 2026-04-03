@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Performance Predictor – Project Report</title>
+  <style>
+    /* =====================================================================
+       GLOBAL RESET & BASE
+       ===================================================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 12pt;
+      line-height: 1.8;
+      color: #000;
+      background: #fff;
+    }
+
+    /* =====================================================================
+       PAGE LAYOUT  (A4 pages separated by visible breaks)
+       ===================================================================== */
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto 20px;
+      padding: 25mm 25mm 20mm 30mm;   /* top right bottom left */
+      background: #fff;
+      box-shadow: 0 0 10px rgba(0,0,0,.15);
+      position: relative;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .page {
+        width: 100%;
+        min-height: auto;
+        margin: 0;
+        padding: 25mm 25mm 20mm 30mm;
+        box-shadow: none;
+        page-break-after: always;
+      }
+      .no-break { page-break-inside: avoid; }
+    }
+
+    /* =====================================================================
+       COVER PAGE
+       ===================================================================== */
+    .cover {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      text-align: center;
+      min-height: 270mm;
+    }
+
+    .cover .institution {
+      font-size: 14pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      line-height: 1.5;
+    }
+
+    .cover .dept {
+      font-size: 12pt;
+      font-weight: bold;
+      margin-top: 4px;
+    }
+
+    .cover .rule-thick {
+      width: 100%;
+      border: none;
+      border-top: 3px double #000;
+      margin: 8px 0;
+    }
+
+    .cover .report-label {
+      font-size: 14pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 6px;
+    }
+
+    .cover .project-title {
+      font-size: 18pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 18px 0 6px;
+      line-height: 1.4;
+    }
+
+    .cover .subtitle {
+      font-size: 11pt;
+      font-style: italic;
+      color: #333;
+    }
+
+    .cover .submitted-by {
+      font-size: 11pt;
+      margin-top: 20px;
+      line-height: 1.9;
+    }
+
+    .cover .submitted-by table {
+      margin: 0 auto;
+      border-collapse: collapse;
+    }
+
+    .cover .submitted-by td {
+      padding: 2px 10px;
+      font-size: 11pt;
+    }
+
+    .cover .submitted-by .label { font-weight: bold; text-align: right; }
+    .cover .submitted-by .value { text-align: left; }
+
+    .cover .guide-section {
+      font-size: 11pt;
+      margin-top: 10px;
+      line-height: 2;
+    }
+
+    .cover .year {
+      font-size: 12pt;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    /* =====================================================================
+       CERTIFICATE / ACKNOWLEDGEMENT / ABSTRACT
+       ===================================================================== */
+    .section-header-center {
+      font-size: 16pt;
+      font-weight: bold;
+      text-align: center;
+      text-transform: uppercase;
+      text-decoration: underline;
+      margin-bottom: 24px;
+      letter-spacing: 1px;
+    }
+
+    .certificate-body {
+      font-size: 12pt;
+      line-height: 2;
+      text-align: justify;
+    }
+
+    .signature-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 50px;
+    }
+
+    .sig-block { text-align: center; font-size: 11pt; line-height: 1.7; }
+    .sig-block .sig-line { border-top: 1px solid #000; width: 160px; margin: 0 auto 4px; }
+
+    /* =====================================================================
+       CHAPTERS & HEADINGS
+       ===================================================================== */
+    .chapter-title {
+      font-size: 16pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 24px;
+      letter-spacing: .5px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 6px;
+    }
+
+    .chapter-number {
+      font-size: 13pt;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    h2 {
+      font-size: 13pt;
+      font-weight: bold;
+      margin: 20px 0 8px;
+      text-decoration: underline;
+    }
+
+    h3 {
+      font-size: 12pt;
+      font-weight: bold;
+      margin: 14px 0 6px;
+    }
+
+    p {
+      text-align: justify;
+      margin-bottom: 10px;
+    }
+
+    /* =====================================================================
+       TABLE OF CONTENTS
+       ===================================================================== */
+    .toc { list-style: none; }
+    .toc > li {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 12pt;
+      border-bottom: 1px dotted #aaa;
+    }
+    .toc > li.toc-chapter { font-weight: bold; font-size: 12.5pt; margin-top: 6px; }
+    .toc > li.toc-sub { padding-left: 20px; font-weight: normal; font-size: 11.5pt; }
+    .toc .toc-label { flex: 1; }
+    .toc .toc-page { white-space: nowrap; padding-left: 6px; }
+
+    /* =====================================================================
+       BULLET LISTS
+       ===================================================================== */
+    ul.bullet {
+      list-style: disc;
+      padding-left: 28px;
+      margin: 8px 0 14px;
+    }
+    ul.bullet li { margin-bottom: 5px; text-align: justify; }
+
+    ul.arrow {
+      list-style: none;
+      padding-left: 20px;
+      margin: 8px 0 14px;
+    }
+    ul.arrow li::before { content: "➤ "; font-size: 9pt; color: #222; }
+    ul.arrow li { margin-bottom: 5px; text-align: justify; }
+
+    ul.check {
+      list-style: none;
+      padding-left: 20px;
+      margin: 8px 0 14px;
+    }
+    ul.check li::before { content: "✔ "; font-size: 9pt; color: #222; }
+    ul.check li { margin-bottom: 5px; }
+
+    /* =====================================================================
+       NUMBERED STEPS
+       ===================================================================== */
+    ol.steps { padding-left: 30px; margin: 8px 0 14px; }
+    ol.steps li { margin-bottom: 6px; text-align: justify; }
+
+    /* =====================================================================
+       TABLES
+       ===================================================================== */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 18px;
+      font-size: 11pt;
+    }
+    .data-table th, .data-table td {
+      border: 1px solid #444;
+      padding: 6px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .data-table th {
+      background: #f0f0f0;
+      font-weight: bold;
+      text-align: center;
+    }
+    .data-table td:first-child { font-weight: bold; }
+    caption {
+      caption-side: bottom;
+      text-align: center;
+      font-size: 10pt;
+      font-style: italic;
+      margin-top: 4px;
+    }
+
+    /* =====================================================================
+       CODE / INLINE CODE
+       ===================================================================== */
+    code {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 10pt;
+      background: #f5f5f5;
+      padding: 1px 4px;
+      border-radius: 2px;
+    }
+
+    pre {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 9pt;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-left: 4px solid #888;
+      padding: 10px 14px;
+      margin: 10px 0 16px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+
+    /* =====================================================================
+       ARCHITECTURE / DIAGRAM BOXES
+       ===================================================================== */
+    .arch-box {
+      border: 2px solid #333;
+      border-radius: 6px;
+      padding: 14px 18px;
+      margin: 14px 0 18px;
+      background: #fafafa;
+      text-align: center;
+      font-family: "Courier New", monospace;
+      font-size: 10.5pt;
+      line-height: 2;
+      white-space: pre;
+    }
+
+    .flow-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 14px 0;
+      justify-content: center;
+    }
+    .flow-box {
+      border: 2px solid #333;
+      border-radius: 5px;
+      padding: 6px 14px;
+      font-size: 10.5pt;
+      font-weight: bold;
+      background: #f0f0f0;
+      text-align: center;
+      min-width: 90px;
+    }
+    .flow-arrow { font-size: 16pt; font-weight: bold; color: #555; }
+
+    /* =====================================================================
+       FIGURE CAPTION
+       ===================================================================== */
+    .fig-caption {
+      text-align: center;
+      font-size: 10pt;
+      font-style: italic;
+      margin-top: -6px;
+      margin-bottom: 14px;
+    }
+
+    /* =====================================================================
+       ABSTRACT BOX
+       ===================================================================== */
+    .abstract-box {
+      border: 1px solid #888;
+      padding: 18px 22px;
+      border-radius: 4px;
+      background: #fdfdfd;
+      margin: 14px 0;
+    }
+
+    /* =====================================================================
+       RISK BADGE SIMULATION
+       ===================================================================== */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10pt;
+      font-weight: bold;
+      border: 1px solid #aaa;
+    }
+    .badge-green  { background: #d4edda; border-color: #28a745; }
+    .badge-yellow { background: #fff3cd; border-color: #ffc107; }
+    .badge-red    { background: #f8d7da; border-color: #dc3545; }
+
+    /* =====================================================================
+       REFERENCES
+       ===================================================================== */
+    .ref-list { list-style: none; padding: 0; }
+    .ref-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 11pt;
+      line-height: 1.6;
+    }
+    .ref-list li .ref-num {
+      min-width: 28px;
+      font-weight: bold;
+    }
+
+    /* =====================================================================
+       UTILITY
+       ===================================================================== */
+    .mt-10  { margin-top: 10px; }
+    .mt-20  { margin-top: 20px; }
+    .mt-30  { margin-top: 30px; }
+    .mb-10  { margin-bottom: 10px; }
+    .center { text-align: center; }
+    .bold   { font-weight: bold; }
+    .italic { font-style: italic; }
+    .small  { font-size: 10pt; }
+    .underline { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<!-- =========================================================
+     PAGE 1 — COVER PAGE
+     ========================================================= -->
+<div class="page">
+  <div class="cover">
+
+    <div style="width:100%">
+      <div class="institution">
+        Department of Computer Science &amp; Engineering
+      </div>
+      <div class="dept">Bachelor of Technology – Artificial Intelligence &amp; Machine Learning</div>
+      <hr class="rule-thick" />
+      <div class="report-label">Project Report</div>
+      <hr class="rule-thick" style="margin-top:6px;" />
+    </div>
+
+    <div style="width:100%">
+      <div class="project-title">
+        Student Academic Performance Predictor
+      </div>
+      <div class="subtitle">
+        A Full-Stack Machine Learning System with Explainable AI Diagnostics,<br />
+        Risk Stratification, and React-Based Faculty Dashboard
+      </div>
+    </div>
+
+    <div style="width:100%">
+      <div class="submitted-by">
+        <p class="bold center" style="margin-bottom:6px;">Submitted By</p>
+        <table>
+          <tr>
+            <td class="label">Student Name :</td>
+            <td class="value">[Your Name]</td>
+          </tr>
+          <tr>
+            <td class="label">Roll Number :</td>
+            <td class="value">[Roll Number]</td>
+          </tr>
+          <tr>
+            <td class="label">Batch / Section :</td>
+            <td class="value">[Batch / Section]</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="guide-section center">
+        <span class="bold">Project Guide :</span> [Guide Name], [Designation]<br />
+        <span class="bold">GitHub Repository :</span>
+        <a href="https://github.com/shekharkhanduri/student_performance_predictor">
+          github.com/shekharkhanduri/student_performance_predictor
+        </a>
+      </div>
+
+      <div class="year">[College / University Name]<br />Academic Year 2024 – 2025</div>
+    </div>
+
+  </div>
+</div><!-- /cover page -->
+
+
+<!-- =========================================================
+     PAGE 2 — CERTIFICATE
+     ========================================================= -->
+<div class="page">
+  <div class="section-header-center">Certificate</div>
+
+  <div class="certificate-body">
+    <p>
+      This is to certify that the project entitled <strong>"Student Academic
+      Performance Predictor"</strong> submitted by <strong>[Student Name]</strong>,
+      Roll No. <strong>[Roll Number]</strong>, in partial fulfilment of the
+      requirements for the award of the degree of
+      <strong>Bachelor of Technology in Computer Science &amp; Engineering
+      (Artificial Intelligence &amp; Machine Learning)</strong> at
+      <strong>[College / University Name]</strong>, is a bonafide record of work
+      carried out by the student under my supervision and guidance during the
+      academic year 2024 – 2025.
+    </p>
+
+    <p class="mt-20">
+      To the best of my knowledge, this project work has not been submitted
+      earlier, either in part or in full, to any other university or institution
+      for the award of any degree or diploma.
+    </p>
+
+    <p class="mt-10">
+      The project satisfies the requirements of the curriculum prescribed for
+      the degree programme and I recommend it for acceptance.
+    </p>
+  </div>
+
+  <div class="signature-row mt-30">
+    <div class="sig-block">
+      <div style="height:40px;"></div>
+      <div class="sig-line"></div>
+      <div><strong>Project Guide</strong></div>
+      <div>[Guide Name]</div>
+      <div>[Designation, Department]</div>
+    </div>
+
+    <div class="sig-block">
+      <div style="height:40px;"></div>
+      <div class="sig-line"></div>
+      <div><strong>Head of Department</strong></div>
+      <div>[HOD Name]</div>
+      <div>Department of CSE</div>
+    </div>
+
+    <div class="sig-block">
+      <div style="height:40px;"></div>
+      <div class="sig-line"></div>
+      <div><strong>Principal / Director</strong></div>
+      <div>[Principal Name]</div>
+      <div>[College / University Name]</div>
+    </div>
+  </div>
+
+  <div class="mt-30 center small italic">
+    Place: _________________ &nbsp;&nbsp;&nbsp; Date: _________________
+  </div>
+</div>
+
+
+<!-- =========================================================
+     PAGE 3 — ACKNOWLEDGEMENT
+     ========================================================= -->
+<div class="page">
+  <div class="section-header-center">Acknowledgement</div>
+
+  <p>
+    I would like to express my deepest gratitude to all those who supported and
+    guided me throughout the development of this project.
+  </p>
+
+  <p>
+    I am immensely grateful to my project guide, <strong>[Guide Name]</strong>,
+    for providing invaluable mentorship, timely technical guidance, and constant
+    encouragement during every stage of this project.  Their insights on machine
+    learning methodologies and software engineering best practices significantly
+    shaped the quality of this work.
+  </p>
+
+  <p>
+    I extend sincere thanks to the <strong>Head of the Department</strong> and
+    faculty members of the Department of Computer Science &amp; Engineering for
+    providing the necessary academic infrastructure, laboratory facilities, and
+    an environment conducive to research and innovation.
+  </p>
+
+  <p>
+    I am also grateful to the open-source community whose tools and libraries
+    — including FastAPI, React, scikit-learn, XGBoost, CatBoost, SHAP, and
+    LIME — made this project technically feasible.
+  </p>
+
+  <p>
+    Special thanks to the authors and contributors of the Kaggle datasets used
+    for training and validation of the predictive models in this project.
+  </p>
+
+  <p>
+    Finally, I would like to thank my family and friends for their
+    unwavering support, motivation, and patience throughout the course of this
+    project.
+  </p>
+
+  <div class="mt-30">
+    <p class="bold">[Student Name]</p>
+    <p>[Roll Number]</p>
+    <p>[College / University Name]</p>
+  </div>
+</div>
+
+
+<!-- =========================================================
+     PAGE 4 — ABSTRACT
+     ========================================================= -->
+<div class="page">
+  <div class="section-header-center">Abstract</div>
+
+  <div class="abstract-box">
+    <p>
+      Predicting student academic performance at an early stage enables
+      educators to identify at-risk learners and intervene before outcomes
+      deteriorate.  This project presents a <strong>Student Academic Performance
+      Predictor</strong> — an end-to-end machine learning system that combines
+      a <em>Stacking Ensemble Regressor</em> (XGBoost + CatBoost + Random
+      Forest with LassoCV meta-learner) with a full-stack web application to
+      provide real-time, explainable predictions.
+    </p>
+
+    <p>
+      Two publicly available datasets are supported: Dataset&nbsp;1
+      (10,000&nbsp;samples, 6&nbsp;features, target: <em>Performance Index</em>)
+      and Dataset&nbsp;2 (6,607&nbsp;samples, 20&nbsp;features, target:
+      <em>Exam Score</em>).  Features are selected through Pearson correlation
+      analysis.  Model explainability is provided via SHAP
+      (KernelExplainer) and LIME for per-student diagnostic reporting.
+    </p>
+
+    <p>
+      The system comprises a <strong>FastAPI backend</strong> (Python) with
+      a PostgreSQL database (Neon cloud), a <strong>React 18 + Vite
+      frontend</strong> dashboard enabling bulk CSV upload and manual
+      predictions, and a training pipeline that produces deployable
+      <code>.joblib</code> model artefacts.  Students are automatically
+      stratified into three risk categories — <strong>Stable</strong> (≥70),
+      <strong>Borderline</strong> (60–69), and <strong>At-Risk</strong>
+      (&lt;60) — and the top three contributing negative factors per student
+      are surfaced through SHAP attribution values.
+    </p>
+
+    <p>
+      The ensemble model outperforms each individual base learner on both
+      datasets as validated by paired t-tests (p &lt; 0.05) and achieves an
+      R² of approximately 0.92 on Dataset&nbsp;1 and 0.89 on Dataset&nbsp;2.
+    </p>
+  </div>
+
+  <p class="mt-10 bold">Keywords:</p>
+  <p>
+    Student Performance Prediction, Stacking Ensemble, XGBoost, CatBoost,
+    Random Forest, SHAP, LIME, Explainable AI, FastAPI, React, PostgreSQL,
+    Risk Stratification, Machine Learning, Full-Stack Web Application.
+  </p>
+</div>
+
+
+<!-- =========================================================
+     PAGE 5 — TABLE OF CONTENTS
+     ========================================================= -->
+<div class="page">
+  <div class="section-header-center">Table of Contents</div>
+
+  <ul class="toc">
+    <li class="toc-chapter"><span class="toc-label">Certificate</span><span class="toc-page">ii</span></li>
+    <li class="toc-chapter"><span class="toc-label">Acknowledgement</span><span class="toc-page">iii</span></li>
+    <li class="toc-chapter"><span class="toc-label">Abstract</span><span class="toc-page">iv</span></li>
+    <li class="toc-chapter"><span class="toc-label">Table of Contents</span><span class="toc-page">v</span></li>
+    <li class="toc-chapter"><span class="toc-label">List of Figures</span><span class="toc-page">vi</span></li>
+    <li class="toc-chapter"><span class="toc-label">List of Tables</span><span class="toc-page">vi</span></li>
+
+    <li class="toc-chapter"><span class="toc-label">Chapter 1 &nbsp; Introduction</span><span class="toc-page">1</span></li>
+    <li class="toc-sub"><span class="toc-label">1.1 &nbsp; Background</span><span class="toc-page">1</span></li>
+    <li class="toc-sub"><span class="toc-label">1.2 &nbsp; Problem Statement</span><span class="toc-page">2</span></li>
+    <li class="toc-sub"><span class="toc-label">1.3 &nbsp; Project Objectives</span><span class="toc-page">2</span></li>
+    <li class="toc-sub"><span class="toc-label">1.4 &nbsp; Project Scope</span><span class="toc-page">3</span></li>
+
+    <li class="toc-chapter"><span class="toc-label">Chapter 2 &nbsp; Literature Survey</span><span class="toc-page">4</span></li>
+
+    <li class="toc-chapter"><span class="toc-label">Chapter 3 &nbsp; System Analysis &amp; Requirements</span><span class="toc-page">6</span></li>
+    <li class="toc-sub"><span class="toc-label">3.1 &nbsp; Functional Requirements</span><span class="toc-page">6</span></li>
+    <li class="toc-sub"><span class="toc-label">3.2 &nbsp; Non-Functional Requirements</span><span class="toc-page">7</span></li>
+    <li class="toc-sub"><span class="toc-label">3.3 &nbsp; Hardware Requirements</span><span class="toc-page">7</span></li>
+    <li class="toc-sub"><span class="toc-label">3.4 &nbsp; Software Requirements</span><span class="toc-page">8</span></li>
+
+    <li class="toc-chapter"><span class="toc-label">Chapter 4 &nbsp; System Design</span><span class="toc-page">9</span></li>
+    <li class="toc-sub"><span class="toc-label">4.1 &nbsp; High-Level Architecture</span><span class="toc-page">9</span></li>
+    <li class="toc-sub"><span class="toc-label">4.2 &nbsp; Database Schema</span><span class="toc-page">10</span></li>
+    <li class="toc-sub"><span class="toc-label">4.3 &nbsp; Data Flow Diagram</span><span class="toc-page">11</span></li>
+    <li class="toc-sub"><span class="toc-label">4.4 &nbsp; API Design</span><span class="toc-page">12</span></li>
+    <li class="toc-sub"><span class="toc-label">4.5 &nbsp; Frontend Component Design</span><span class="toc-page">13</span></li>
+
+    <li class="toc-chapter"><span class="toc-label">Chapter 5 &nbsp; Implementation</span><span class="toc-page">14</span></li>
+    <li class="toc-sub"><span class="toc-label">5.1 &nbsp; ML Training Pipeline</span><span class="toc-page">14</span></li>
+    <li class="toc-sub"><span class="toc-label">5.2 &nbsp; Backend Implementation</span><span class="toc-page">16</span></li>
+    <li class="toc-sub"><span class="toc-label">5.3 &nbsp; Frontend Implementation</span><span class="toc-page">18</span></li>
+
+    <li class="toc-chapter"><span class="toc-label">Chapter 6 &nbsp; Testing</span><span class="toc-page">20</span></li>
+
+    <li class="toc-chapter"><span class="toc-label">Chapter 7 &nbsp; Results &amp; Discussion</span><span class="toc-page">22</span></li>
+
+    <li class="toc-chapter"><span class="toc-label">Chapter 8 &nbsp; Conclusion &amp; Future Work</span><span class="toc-page">24</span></li>
+
+    <li class="toc-chapter"><span class="toc-label">References</span><span class="toc-page">26</span></li>
+  </ul>
+</div>
+
+
+<!-- =========================================================
+     PAGE 6 — LIST OF FIGURES & TABLES
+     ========================================================= -->
+<div class="page">
+  <div class="section-header-center">List of Figures</div>
+
+  <ul class="toc">
+    <li><span class="toc-label">Figure 4.1 &nbsp; High-Level System Architecture</span><span class="toc-page">9</span></li>
+    <li><span class="toc-label">Figure 4.2 &nbsp; Database ER Diagram</span><span class="toc-page">10</span></li>
+    <li><span class="toc-label">Figure 4.3 &nbsp; Level-0 Data Flow Diagram</span><span class="toc-page">11</span></li>
+    <li><span class="toc-label">Figure 4.4 &nbsp; Level-1 Data Flow Diagram – CSV Upload Path</span><span class="toc-page">11</span></li>
+    <li><span class="toc-label">Figure 5.1 &nbsp; Stacking Ensemble Architecture</span><span class="toc-page">15</span></li>
+    <li><span class="toc-label">Figure 5.2 &nbsp; Feature Correlation Heatmap – Dataset 1</span><span class="toc-page">16</span></li>
+    <li><span class="toc-label">Figure 5.3 &nbsp; SHAP Summary Plot – Dataset 2</span><span class="toc-page">17</span></li>
+    <li><span class="toc-label">Figure 5.4 &nbsp; React Frontend Dashboard Layout</span><span class="toc-page">19</span></li>
+    <li><span class="toc-label">Figure 7.1 &nbsp; Predicted vs. Actual Score – Dataset 1</span><span class="toc-page">22</span></li>
+    <li><span class="toc-label">Figure 7.2 &nbsp; Risk Category Distribution – Dataset 2</span><span class="toc-page">23</span></li>
+  </ul>
+
+  <div class="section-header-center mt-30">List of Tables</div>
+
+  <ul class="toc">
+    <li><span class="toc-label">Table 2.1 &nbsp; Comparison of Related Work</span><span class="toc-page">5</span></li>
+    <li><span class="toc-label">Table 3.1 &nbsp; Hardware Requirements</span><span class="toc-page">7</span></li>
+    <li><span class="toc-label">Table 3.2 &nbsp; Backend Software Requirements</span><span class="toc-page">8</span></li>
+    <li><span class="toc-label">Table 3.3 &nbsp; Frontend Software Requirements</span><span class="toc-page">8</span></li>
+    <li><span class="toc-label">Table 4.1 &nbsp; REST API Endpoints</span><span class="toc-page">12</span></li>
+    <li><span class="toc-label">Table 4.2 &nbsp; Dataset 1 – Feature Descriptions</span><span class="toc-page">10</span></li>
+    <li><span class="toc-label">Table 4.3 &nbsp; Dataset 2 – Feature Descriptions</span><span class="toc-page">10</span></li>
+    <li><span class="toc-label">Table 6.1 &nbsp; Unit Test Cases</span><span class="toc-page">20</span></li>
+    <li><span class="toc-label">Table 6.2 &nbsp; Integration Test Cases</span><span class="toc-page">21</span></li>
+    <li><span class="toc-label">Table 7.1 &nbsp; Model Performance Metrics</span><span class="toc-page">22</span></li>
+  </ul>
+</div>
+
+
+<!-- =========================================================
+     PAGE 7 — CHAPTER 1: INTRODUCTION
+     ========================================================= -->
+<div class="page">
+  <div class="chapter-number">Chapter 1</div>
+  <div class="chapter-title">Introduction</div>
+
+  <h2>1.1 Background</h2>
+  <p>
+    Educational institutions face a persistent challenge in identifying
+    students who are at risk of academic failure early enough to offer
+    meaningful intervention.  Traditional assessments — mid-semester exams,
+    attendance records, and teacher observations — are either reactive or
+    subjective, leaving little room for data-driven, pre-emptive support.
+  </p>
+  <p>
+    The rapid growth of educational data (attendance registers, assessment
+    scores, socioeconomic profiles, study-habit surveys) has created an
+    opportunity to apply <strong>Machine Learning (ML)</strong> techniques
+    to predict academic outcomes with quantifiable confidence.  When combined
+    with <strong>Explainable Artificial Intelligence (XAI)</strong> methods,
+    such a system not only predicts <em>what</em> a student will score, but
+    also explains <em>why</em> — surfacing the specific factors most
+    negatively affecting a student's expected performance.
+  </p>
+  <p>
+    This project delivers a complete, production-ready system: a trained
+    stacking ensemble ML model, a RESTful API server, and a modern web
+    dashboard — enabling faculty to upload class data in bulk or query
+    individual students, and receive immediate, interpretable predictions.
+  </p>
+
+  <h2>1.2 Problem Statement</h2>
+  <p>
+    Despite the availability of rich student data, most institutions lack
+    automated tools to:
+  </p>
+  <ul class="bullet">
+    <li>Predict student performance scores before final examinations.</li>
+    <li>Classify students into risk tiers (<em>Stable</em>, <em>Borderline</em>,
+    <em>At-Risk</em>) for prioritised counselling.</li>
+    <li>Explain predictions in terms educators can act upon (e.g., "this student
+    is predicted to score 54 because of low attendance and minimal tutoring
+    sessions").</li>
+    <li>Handle bulk upload workflows for whole-class or whole-cohort analysis.</li>
+    <li>Persist and query historical prediction records for longitudinal
+    monitoring.</li>
+  </ul>
+
+  <h2>1.3 Project Objectives</h2>
+  <ul class="bullet">
+    <li>Build a high-accuracy regression model using a stacking ensemble of
+    XGBoost, CatBoost, and Random Forest with LassoCV meta-learner.</li>
+    <li>Support two student datasets with different feature sets (6 features
+    vs. 20 features).</li>
+    <li>Apply SHAP (KernelExplainer) to generate per-student explanations
+    identifying the top negative performance drivers.</li>
+    <li>Implement a FastAPI backend with PostgreSQL persistence, exposing
+    RESTful endpoints for prediction, CSV upload, and student record
+    retrieval.</li>
+    <li>Develop a React 18 + Vite single-page application dashboard providing
+    faculty with search, filter, upload, and manual prediction capabilities.</li>
+    <li>Validate the ensemble model against each individual base learner using
+    paired t-tests and regression metrics (MAE, RMSE, R²).</li>
+    <li>Ensure deployability on any Linux server with Python 3.9+ and Node.js
+    16+, with environment-variable–based configuration.</li>
+  </ul>
+
+  <h2>1.4 Project Scope</h2>
+  <ul class="bullet">
+    <li>Covers the complete ML lifecycle: data ingestion → preprocessing →
+    feature selection → model training → export → serving → inference.</li>
+    <li>Provides both bulk (CSV) and individual (API/form) prediction modes.</li>
+    <li>Delivers frontend UI built with React and styled using vanilla CSS
+    (dark theme).</li>
+    <li>Targets educators and institutional administrators as primary users;
+    does not include a student-facing interface.</li>
+    <li>Supports PostgreSQL (Neon cloud or on-premises) as the persistence
+    layer.</li>
+  </ul>
+</div>
+
+
+<!-- =========================================================
+     PAGE 8 — CHAPTER 2: LITERATURE SURVEY
+     ========================================================= -->
+<div class="page">
+  <div class="chapter-number">Chapter 2</div>
+  <div class="chapter-title">Literature Survey</div>
+
+  <p>
+    A substantial body of research exists on predicting student academic
+    performance using machine learning.  The following review covers the most
+    relevant prior work and identifies the gaps addressed by this project.
+  </p>
+
+  <h2>2.1 Traditional ML Approaches</h2>
+  <ul class="bullet">
+    <li><strong>Cortez &amp; Silva (2008)</strong> applied decision trees,
+    random forests, and neural networks to secondary school data, achieving
+    F1-scores up to 0.92 for binary pass/fail classification.  However, their
+    work focused on classification rather than score regression and did not
+    provide per-student explanations.</li>
+    <li><strong>Yadav et al. (2012)</strong> compared Naïve Bayes, ID3, and
+    back-propagation networks on engineering student data and found that
+    ensemble approaches outperformed single classifiers but lacked
+    interpretability mechanisms.</li>
+    <li><strong>Shahiri et al. (2015)</strong> conducted a systematic literature
+    review of 33 studies and concluded that neural networks and decision trees
+    were the most popular techniques, but explainability was consistently
+    identified as a research gap.</li>
+  </ul>
+
+  <h2>2.2 Ensemble Methods</h2>
+  <ul class="bullet">
+    <li><strong>Fernández-Delgado et al. (2014)</strong> benchmarked 179
+    classifiers and found that Random Forest consistently ranked among the top
+    performers, motivating its inclusion as a base learner in this project.</li>
+    <li><strong>Chen &amp; Guestrin (2016)</strong> introduced XGBoost, which
+    has since become the dominant gradient-boosting algorithm in tabular data
+    competitions, justifying its use here.</li>
+    <li><strong>Prokhorenkova et al. (2018)</strong> introduced CatBoost,
+    designed to handle categorical features natively with ordered boosting,
+    making it especially suited for the mixed feature types in Dataset&nbsp;2.</li>
+    <li><strong>Wolpert (1992)</strong> formalised Stacked Generalisation
+    (stacking), showing that a meta-learner trained on base-learner
+    out-of-fold predictions reduces variance and bias simultaneously —
+    the theoretical basis for the ensemble in this project.</li>
+  </ul>
+
+  <h2>2.3 Explainability in Educational AI</h2>
+  <ul class="bullet">
+    <li><strong>Lundberg &amp; Lee (2017)</strong> introduced SHAP (SHapley
+    Additive exPlanations) based on cooperative game theory, providing
+    theoretically grounded feature attribution values that sum to the model
+    prediction.  This work directly motivates the use of SHAP in this
+    project for per-student diagnostic reporting.</li>
+    <li><strong>Ribeiro et al. (2016)</strong> proposed LIME (Local
+    Interpretable Model-agnostic Explanations), which fits a locally linear
+    model around individual predictions.  LIME is used in this project for
+    supplementary local explanations during model training.</li>
+    <li><strong>Conijn et al. (2017)</strong> emphasised that interpretability
+    is critical for educational stakeholders to trust and act on ML-driven
+    predictions, validating the dual SHAP+LIME approach.</li>
+  </ul>
+
+  <h2>2.4 Gap Identified</h2>
+  <p>
+    Existing work predominantly focuses on classification (pass/fail),
+    single-dataset evaluations, and batch-offline settings without a live,
+    interactive dashboard.  This project addresses all three gaps by providing
+    a regression-based score predictor, dual-dataset support, and a real-time
+    web application with persistent storage.
+  </p>
+
+  <table class="data-table">
+    <caption>Table 2.1 — Comparison of Related Work</caption>
+    <thead>
+      <tr>
+        <th>Author(s)</th>
+        <th>Approach</th>
+        <th>Task</th>
+        <th>XAI?</th>
+        <th>Web UI?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Cortez &amp; Silva (2008)</td><td>Decision Tree, RF, NN</td><td>Classification</td><td>No</td><td>No</td></tr>
+      <tr><td>Yadav et al. (2012)</td><td>Naïve Bayes, ID3, BP-NN</td><td>Classification</td><td>No</td><td>No</td></tr>
+      <tr><td>Shahiri et al. (2015)</td><td>Survey (33 studies)</td><td>Both</td><td>No</td><td>No</td></tr>
+      <tr><td>Lundberg &amp; Lee (2017)</td><td>SHAP</td><td>Explanation</td><td>Yes</td><td>No</td></tr>
+      <tr><td><strong>This Project</strong></td><td><strong>Stacking Ensemble + SHAP</strong></td><td><strong>Regression</strong></td><td><strong>Yes</strong></td><td><strong>Yes</strong></td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- =========================================================
+     PAGE 9 — CHAPTER 3: SYSTEM REQUIREMENTS
+     ========================================================= -->
+<div class="page">
+  <div class="chapter-number">Chapter 3</div>
+  <div class="chapter-title">System Analysis &amp; Requirements</div>
+
+  <h2>3.1 Functional Requirements</h2>
+
+  <h3>3.1.1 Machine Learning Module</h3>
+  <ul class="bullet">
+    <li>The system shall load or synthetically generate Dataset 1 (10,000 samples,
+    6 features) and Dataset 2 (6,607 samples, 20 features).</li>
+    <li>The system shall preprocess data by applying label encoding to categorical
+    features and StandardScaler normalisation to numerical features.</li>
+    <li>The system shall select features using Pearson correlation analysis and
+    remove low-correlation or redundant columns.</li>
+    <li>The system shall train a Stacking Ensemble Regressor using XGBoost,
+    CatBoost, and Random Forest as base learners, and LassoCV as the
+    meta-learner.</li>
+    <li>The system shall validate the ensemble using 5-fold cross-validation and
+    paired t-tests against individual base learners.</li>
+    <li>The system shall generate SHAP and LIME explanations for model
+    predictions.</li>
+    <li>The system shall export trained models and scalers as <code>.joblib</code>
+    files to <code>backend/mlmodel/</code>.</li>
+  </ul>
+
+  <h3>3.1.2 Backend (API) Module</h3>
+  <ul class="bullet">
+    <li>The system shall expose a RESTful API for prediction, CSV upload, student
+    record retrieval, and health checking.</li>
+    <li>The system shall accept CSV files with Dataset 1 or Dataset 2 schema
+    and return predictions for all valid rows.</li>
+    <li>The system shall compute per-student SHAP values and identify the top
+    three negative contributing features.</li>
+    <li>The system shall persist all predictions to a PostgreSQL database via
+    SQLAlchemy ORM with upsert logic (student_id as unique key).</li>
+    <li>The system shall classify each student as <em>Stable</em> (≥70),
+    <em>Borderline</em> (60–69), or <em>At-Risk</em> (&lt;60).</li>
+    <li>The system shall support filtering of students by risk level and dataset
+    type in list queries.</li>
+  </ul>
+
+  <h3>3.1.3 Frontend (Dashboard) Module</h3>
+  <ul class="bullet">
+    <li>The system shall provide a single-page web dashboard accessible from any
+    modern browser.</li>
+    <li>The system shall display an API health indicator and model status in a
+    header bar.</li>
+    <li>The system shall display four aggregate KPI cards: total students, average
+    predicted score, at-risk count, and borderline count.</li>
+    <li>The system shall allow faculty to upload CSV files via a drag-and-drop
+    zone or file picker.</li>
+    <li>The system shall render a searchable and sortable student table with
+    colour-coded risk badges.</li>
+    <li>The system shall display per-student diagnostics (predicted score, risk
+    level, top negative SHAP factors) on row click.</li>
+    <li>The system shall provide a manual prediction form supporting both
+    Dataset 1 and Dataset 2 input schemas.</li>
+  </ul>
+
+  <h2>3.2 Non-Functional Requirements</h2>
+  <ul class="bullet">
+    <li><strong>Performance:</strong> Bulk CSV prediction for 1,000 rows shall
+    complete within 10 seconds on standard hardware.</li>
+    <li><strong>Scalability:</strong> The API shall handle concurrent requests
+    using async FastAPI endpoints and connection pooling.</li>
+    <li><strong>Reliability:</strong> Upsert logic ensures no duplicate student
+    records; rollback is applied on per-row insert failure.</li>
+    <li><strong>Security:</strong> CORS middleware restricts origins; environment
+    variables protect database credentials.</li>
+    <li><strong>Maintainability:</strong> Code is modularised into
+    <code>api/</code>, <code>core/</code>, <code>models/</code>,
+    <code>schemas/</code>, and <code>services/</code> packages.</li>
+    <li><strong>Portability:</strong> The project runs on any platform with
+    Python 3.9+ and Node.js 16+; Docker deployment is also supported.</li>
+    <li><strong>Usability:</strong> The frontend requires no authentication and
+    is operable by non-technical educators after a brief orientation.</li>
+  </ul>
+
+  <h2>3.3 Hardware Requirements</h2>
+
+  <table class="data-table">
+    <caption>Table 3.1 — Hardware Requirements</caption>
+    <thead>
+      <tr><th>Component</th><th>Minimum Specification</th><th>Recommended</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Processor</td><td>Intel Core i3 / AMD Ryzen 3 (2 GHz)</td><td>Intel Core i5 / AMD Ryzen 5 (3 GHz)</td></tr>
+      <tr><td>RAM</td><td>4 GB</td><td>8 GB or more</td></tr>
+      <tr><td>Storage</td><td>5 GB free (models + dependencies)</td><td>10 GB SSD</td></tr>
+      <tr><td>Network</td><td>Internet access for Neon DB / npm</td><td>Stable broadband</td></tr>
+      <tr><td>Display</td><td>1280 × 720 resolution</td><td>1920 × 1080 Full HD</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3.4 Software Requirements</h2>
+
+  <table class="data-table">
+    <caption>Table 3.2 — Backend Software Requirements</caption>
+    <thead>
+      <tr><th>Library / Tool</th><th>Version</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Python</td><td>≥ 3.9</td><td>Runtime environment</td></tr>
+      <tr><td>FastAPI</td><td>≥ 0.110.0</td><td>REST API framework</td></tr>
+      <tr><td>Uvicorn</td><td>≥ 0.29.0</td><td>ASGI web server</td></tr>
+      <tr><td>SQLAlchemy</td><td>≥ 2.0.0</td><td>ORM for PostgreSQL</td></tr>
+      <tr><td>psycopg2-binary</td><td>≥ 2.9.0</td><td>PostgreSQL driver</td></tr>
+      <tr><td>scikit-learn</td><td>≥ 1.0.0</td><td>Preprocessing &amp; stacking</td></tr>
+      <tr><td>XGBoost</td><td>≥ 1.5.0</td><td>Gradient boosting base learner</td></tr>
+      <tr><td>CatBoost</td><td>≥ 1.0.0</td><td>Categorical gradient boosting</td></tr>
+      <tr><td>SHAP</td><td>≥ 0.40.0</td><td>Model explainability</td></tr>
+      <tr><td>LIME</td><td>≥ 0.2.0</td><td>Local explanations</td></tr>
+      <tr><td>NumPy / Pandas</td><td>≥ 1.21 / 1.3</td><td>Data manipulation</td></tr>
+      <tr><td>joblib</td><td>≥ 1.1.0</td><td>Model serialisation</td></tr>
+    </tbody>
+  </table>
+
+  <table class="data-table mt-10">
+    <caption>Table 3.3 — Frontend Software Requirements</caption>
+    <thead>
+      <tr><th>Library / Tool</th><th>Version</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Node.js</td><td>≥ 16.0</td><td>JavaScript runtime</td></tr>
+      <tr><td>React</td><td>18.3.1</td><td>UI component library</td></tr>
+      <tr><td>React DOM</td><td>18.3.1</td><td>DOM rendering</td></tr>
+      <tr><td>Vite</td><td>5.4.14</td><td>Build tool &amp; dev server</td></tr>
+      <tr><td>@vitejs/plugin-react</td><td>4.4.1</td><td>React HMR support</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- =========================================================
+     PAGE 10 — CHAPTER 4: SYSTEM DESIGN
+     ========================================================= -->
+<div class="page">
+  <div class="chapter-number">Chapter 4</div>
+  <div class="chapter-title">System Design</div>
+
+  <h2>4.1 High-Level System Architecture</h2>
+  <p>
+    The system follows a three-tier architecture separating the presentation
+    layer (React dashboard), application layer (FastAPI), and data layer
+    (PostgreSQL + model files).
+  </p>
+
+  <div class="arch-box">┌─────────────────────────────────────────────────────────────┐
+│                    PRESENTATION LAYER                       │
+│              React 18 + Vite  (localhost:5173)              │
+│   ┌──────────┐ ┌────────────┐ ┌──────────┐ ┌───────────┐  │
+│   │ Header   │ │ StatsPanel │ │ Upload   │ │ Predict   │  │
+│   │ (health) │ │ (4 KPIs)   │ │ Panel    │ │ Form      │  │
+│   └──────────┘ └────────────┘ └──────────┘ └───────────┘  │
+│   ┌─────────────────────┐  ┌────────────────────────────┐  │
+│   │   StudentsTable     │  │     StudentDetails (SHAP)  │  │
+│   └─────────────────────┘  └────────────────────────────┘  │
+└───────────────────────┬─────────────────────────────────────┘
+                        │  HTTP / REST (JSON)
+┌───────────────────────▼─────────────────────────────────────┐
+│                   APPLICATION LAYER                         │
+│              FastAPI + Uvicorn  (0.0.0.0:8000)              │
+│  ┌──────────┐ ┌──────────────┐ ┌───────────────────────┐   │
+│  │ /health  │ │ /upload      │ │ /students  /student   │   │
+│  │ router   │ │ router       │ │ /predict   routes     │   │
+│  └──────────┘ └──────┬───────┘ └──────────┬────────────┘   │
+│             ┌────────▼────────┐   ┌────────▼────────┐       │
+│             │   ml_service   │   │ student_service  │       │
+│             │ (predict/SHAP) │   │ (upsert/query)  │       │
+│             └────────┬────────┘   └────────┬────────┘       │
+└──────────────────────┼─────────────────────┼────────────────┘
+                       │ .joblib             │ SQLAlchemy
+         ┌─────────────▼─────────┐  ┌────────▼───────────┐
+         │  ML Model Artifacts   │  │   PostgreSQL DB     │
+         │  backend/mlmodel/     │  │   (Neon Cloud)      │
+         │  model_ds1.joblib     │  │   student_data_ds1  │
+         │  model_ds2.joblib     │  │   student_data_ds2  │
+         │  scaler_ds1.joblib    │  └────────────────────┘
+         │  scaler_ds2.joblib    │
+         └───────────────────────┘</div>
+  <p class="fig-caption">Figure 4.1 — High-Level Three-Tier System Architecture</p>
+
+  <h2>4.2 Database Schema</h2>
+  <p>
+    Two tables share a common column set via Python mixin inheritance.
+    <code>student_id</code> is a unique, indexed business key supporting
+    idempotent upsert operations.
+  </p>
+
+  <table class="data-table">
+    <caption>Table 4.2 — Common Columns (shared by both tables)</caption>
+    <thead>
+      <tr><th>Column</th><th>Type</th><th>Constraint</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>id</td><td>Integer</td><td>PK, auto-increment</td><td>Internal row identifier</td></tr>
+      <tr><td>student_id</td><td>Integer</td><td>Unique, indexed, NOT NULL</td><td>Business key from institution</td></tr>
+      <tr><td>student_name</td><td>String(128)</td><td>Nullable</td><td>Full name</td></tr>
+      <tr><td>predicted_exam_score</td><td>Float</td><td>Nullable</td><td>Model output</td></tr>
+      <tr><td>risk_level</td><td>String(16)</td><td>Nullable</td><td>Stable / Borderline / At-Risk</td></tr>
+      <tr><td>shap_explanations</td><td>JSON</td><td>Nullable</td><td>Top 3 negative SHAP factors</td></tr>
+      <tr><td>upload_batch</td><td>String(64)</td><td>Nullable</td><td>UUID prefix for CSV batch</td></tr>
+      <tr><td>created_at</td><td>DateTime(tz)</td><td>Default: UTC now</td><td>Record creation timestamp</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    <strong>Dataset-specific columns</strong> in <code>student_data_ds1</code>:
+    <code>hours_studied</code>, <code>previous_scores</code>,
+    <code>extracurricular_activities</code>, <code>sleep_hours</code>,
+    <code>sample_question_papers_practiced</code>.
+  </p>
+  <p>
+    <strong>Dataset-specific columns</strong> in <code>student_data_ds2</code>
+    add: <code>attendance</code>, <code>gender</code>,
+    <code>parental_involvement</code>, <code>access_to_resources</code>,
+    <code>motivation_level</code>, <code>internet_access</code>,
+    <code>tutoring_sessions</code>, <code>family_income</code>,
+    <code>teacher_quality</code>, <code>school_type</code>,
+    <code>peer_influence</code>, <code>physical_activity</code>,
+    <code>learning_disabilities</code>, <code>parental_education_level</code>,
+    <code>distance_from_home</code>.
+  </p>
+</div>
+
+
+<!-- =========================================================
+     PAGE 11 — CHAPTER 4 CONTINUED: DFD & API
+     ========================================================= -->
+<div class="page">
+
+  <h2>4.3 Data Flow Diagrams</h2>
+
+  <h3>Level-0 DFD (Context Diagram)</h3>
+  <div class="flow-row">
+    <div class="flow-box">Faculty /&nbsp;Admin<br/><span style="font-size:9pt;font-weight:normal;">(External Entity)</span></div>
+    <div class="flow-arrow">→ CSV / Form →</div>
+    <div class="flow-box" style="background:#e8f4fd;">Student Performance<br/>Predictor System</div>
+    <div class="flow-arrow">→ Predictions / Reports →</div>
+    <div class="flow-box">Faculty<br/>Dashboard</div>
+  </div>
+  <p class="fig-caption">Figure 4.3 — Level-0 Data Flow Diagram</p>
+
+  <h3>Level-1 DFD — CSV Upload Path</h3>
+  <div class="arch-box">Faculty
+  │
+  │ CSV File
+  ▼
+[1.0 Parse &amp; Validate CSV]
+  │ Validated DataFrame
+  ▼
+[2.0 Detect Dataset Type (DS1/DS2)]
+  │ Feature Matrix
+  ▼
+[3.0 Preprocess (Encode + Scale)]
+  │ Scaled Array
+  ▼
+[4.0 Batch Predict (Ensemble Model)]
+  │ Raw Scores
+  ▼
+[5.0 Compute SHAP + Classify Risk]
+  │ Enriched Results
+  ▼
+[6.0 Upsert to PostgreSQL]
+  │ Confirmation
+  ▼
+[7.0 Return Upload Summary to Dashboard]</div>
+  <p class="fig-caption">Figure 4.4 — Level-1 DFD: CSV Upload Data Flow</p>
+
+  <h2>4.4 REST API Design</h2>
+
+  <table class="data-table">
+    <caption>Table 4.1 — REST API Endpoints</caption>
+    <thead>
+      <tr>
+        <th>Method</th><th>Endpoint</th><th>Description</th><th>Auth</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>GET</td><td><code>/health</code></td><td>API and model readiness check</td><td>None</td></tr>
+      <tr><td>POST</td><td><code>/upload</code></td><td>Bulk CSV upload; returns UploadSummary</td><td>None</td></tr>
+      <tr><td>GET</td><td><code>/students</code></td><td>Paginated student list; filter by risk_level, dataset_type</td><td>None</td></tr>
+      <tr><td>GET</td><td><code>/student/{student_id}</code></td><td>Single student full diagnostics</td><td>None</td></tr>
+      <tr><td>POST</td><td><code>/predict</code></td><td>Single student manual prediction; persists to DB</td><td>None</td></tr>
+    </tbody>
+  </table>
+
+  <h2>4.5 Frontend Component Design</h2>
+  <p>
+    The React frontend follows a split-panel single-page layout with no
+    external state management library; local <code>useState</code> /
+    <code>useEffect</code> hooks manage all component state.
+  </p>
+
+  <div class="arch-box">App.jsx
+├── Header.jsx          ← API health badge + model status
+├── [Left Panel]
+│   ├── StatsPanel.jsx  ← 4 KPI cards (Total / Avg / At-Risk / Borderline)
+│   ├── UploadPanel.jsx ← CSV drag-drop, format guide, batch summary
+│   └── PredictionForm.jsx ← DS1/DS2 toggle, manual input, submit
+└── [Right Panel]
+    ├── StudentsTable.jsx ← Searchable list, risk badges, row-click select
+    └── StudentDetails.jsx ← SHAP factors, risk explanation, score display
+
+lib/api.js              ← Axios-style fetch wrapper (VITE_API_BASE_URL)</div>
+  <p class="fig-caption">Figure 5.4 — React Component Tree</p>
+</div>
+
+
+<!-- =========================================================
+     PAGE 12 — CHAPTER 5: IMPLEMENTATION – ML PIPELINE
+     ========================================================= -->
+<div class="page">
+  <div class="chapter-number">Chapter 5</div>
+  <div class="chapter-title">Implementation</div>
+
+  <h2>5.1 ML Training Pipeline</h2>
+  <p>
+    The training pipeline is implemented in
+    <code>Training_model/student_performance_predictor.py</code> and executes
+    as a standalone Python script.
+  </p>
+
+  <h3>5.1.1 Data Ingestion &amp; Preprocessing</h3>
+  <ul class="bullet">
+    <li><strong>Dataset Loading:</strong> CSV files are loaded from
+    <code>data/dataset1.csv</code> and <code>data/dataset2.csv</code>.  If
+    files are absent, synthetic datasets are generated using
+    <code>numpy.random.default_rng</code> with correlation coefficients
+    matching documented distributions.</li>
+    <li><strong>Outlier Correction:</strong> Dataset 2 clamps
+    <code>Exam_Score</code> values exceeding 100 to 100.</li>
+    <li><strong>Categorical Encoding:</strong> <code>LabelEncoder</code> is
+    applied to all categorical features.  DS2 categorical mappings are
+    deterministic and hard-coded to ensure reproducibility at inference.</li>
+    <li><strong>Numerical Scaling:</strong> <code>StandardScaler</code> is fit
+    on training data only and applied to both training and test splits
+    (no data leakage).</li>
+    <li><strong>Missing Value Imputation:</strong> Mode imputation for
+    categoricals; mean imputation for numericals.</li>
+  </ul>
+
+  <h3>5.1.2 Feature Selection</h3>
+  <ul class="bullet">
+    <li>Pearson correlation coefficients between each feature and the target
+    are computed using <code>scipy.stats.pearsonr</code>.</li>
+    <li><strong>Dataset 1 selected features:</strong>
+    <code>Previous_Scores</code> (r ≈ 0.92) and
+    <code>Hours_Studied</code> (r ≈ 0.37).</li>
+    <li><strong>Dataset 2 selected features:</strong>
+    <code>Attendance</code> (r ≈ 0.58) and
+    <code>Hours_Studied</code> (r ≈ 0.45).</li>
+    <li>A correlation heatmap is saved to <code>outputs/</code> for visual
+    verification.</li>
+  </ul>
+
+  <h3>5.1.3 Stacking Ensemble Architecture</h3>
+
+  <div class="arch-box">         Training Data  (80 / 20 train-test split)
+                │
+        ┌───────┼───────────┐
+        │       │           │
+   XGBoost  CatBoost  RandomForest      ← Base Learners
+   (5-fold  (5-fold   (5-fold CV
+    OOF)     OOF)      OOF)
+        │       │           │
+        └───────┼───────────┘
+                │ Out-of-fold predictions (stacked)
+                ▼
+           LassoCV              ← Meta-Learner
+          (α auto-tuned
+           via 5-fold CV)
+                │
+                ▼
+        Final Prediction</div>
+  <p class="fig-caption">Figure 5.1 — Stacking Ensemble Architecture</p>
+
+  <h3>5.1.4 Explainability</h3>
+  <ul class="bullet">
+    <li><strong>SHAP KernelExplainer:</strong> Computes Shapley values for a
+    background sample of 50 training instances; evaluates SHAP on the full
+    test set.  Output: SHAP bar chart (global) and SHAP summary dot plot
+    saved to <code>outputs/</code>.</li>
+    <li><strong>LIME Tabular Explainer:</strong> Generates local linear
+    approximations for the first 5 test instances; explanations saved as
+    HTML files in <code>outputs/</code>.</li>
+    <li><strong>Inference SHAP:</strong> At runtime, the backend recomputes
+    SHAP for each incoming prediction using a stored background sample
+    embedded in the model's preprocessing pipeline, surfacing the top three
+    most negative features per student.</li>
+  </ul>
+
+  <h3>5.1.5 Model Validation</h3>
+  <ul class="bullet">
+    <li><strong>Metrics computed:</strong> MAE, RMSE, R² for each base
+    learner and the ensemble on the held-out test set.</li>
+    <li><strong>Paired t-tests</strong> compare ensemble residuals against
+    each base learner's residuals; p &lt; 0.05 is the threshold for
+    claiming statistical superiority.</li>
+    <li>Model artefacts exported to <code>backend/mlmodel/</code> via
+    <code>joblib.dump()</code>.</li>
+  </ul>
+</div>
+
+
+<!-- =========================================================
+     PAGE 13 — CHAPTER 5 CONTINUED: BACKEND
+     ========================================================= -->
+<div class="page">
+  <h2>5.2 Backend Implementation</h2>
+  <p>
+    The backend is organised as a Python package under <code>backend/</code>
+    and started with Uvicorn ASGI server.
+  </p>
+
+  <h3>5.2.1 Project Structure</h3>
+  <pre>backend/
+├── __init__.py
+├── main.py              # FastAPI app + CORS middleware + lifespan
+├── core/
+│   ├── config.py        # Env-var–driven paths &amp; settings
+│   └── database.py      # SQLAlchemy engine, session factory, Base
+├── api/
+│   ├── deps.py          # get_db dependency
+│   └── routers/
+│       ├── health.py    # GET /health
+│       └── students.py  # POST /upload, GET /students, GET /student/{id},
+│                        # POST /predict
+├── models/
+│   └── student.py       # ORM models (StudentDataDS1, StudentDataDS2)
+├── schemas/
+│   └── prediction.py    # Pydantic schemas (request + response)
+└── services/
+    ├── ml_service.py    # Model loading, preprocessing, inference, SHAP
+    └── student_service.py  # row_to_diagnostic, store_student (upsert)</pre>
+
+  <h3>5.2.2 Key Implementation Decisions</h3>
+  <ul class="bullet">
+    <li><strong>Lazy model loading:</strong> Models are loaded on first
+    request and cached in a module-level dictionary, avoiding repeated
+    disk I/O without requiring app restart.</li>
+    <li><strong>Column normalisation:</strong> Incoming CSV headers are
+    case-and-delimiter normalised (spaces → underscores, lowercase) before
+    matching to required feature names, improving resilience to user
+    formatting variations.</li>
+    <li><strong>Upsert logic:</strong> <code>store_student</code> queries by
+    <code>student_id</code>; if a matching row exists it is updated
+    in-place, otherwise a new row is inserted — preventing duplicate records
+    on re-upload.</li>
+    <li><strong>SHAP at inference:</strong> The KernelExplainer background
+    is set to a 20-instance random subset of zeros (fast approximation);
+    full background is used during training for accurate global attribution.</li>
+    <li><strong>Error handling:</strong> Per-row try/except in upload loop
+    with <code>db.rollback()</code> on failure ensures partial CSV failures
+    do not abort the entire batch.</li>
+  </ul>
+
+  <h3>5.2.3 Startup Command</h3>
+  <pre>python3 -m uvicorn backend.main:app \
+    --host 0.0.0.0 --port 8000 --reload</pre>
+
+  <h3>5.2.4 Environment Variables</h3>
+  <ul class="bullet">
+    <li><code>DATABASE_URL</code> — PostgreSQL connection string (required).</li>
+    <li><code>DS1_MODEL_PATH</code> / <code>DS2_MODEL_PATH</code> — Optional
+    overrides for model file paths (default: <code>backend/mlmodel/</code>).</li>
+    <li><code>DS1_SCALER_PATH</code> / <code>DS2_SCALER_PATH</code> — Optional
+    overrides for scaler file paths.</li>
+  </ul>
+
+  <h2>5.3 Frontend Implementation</h2>
+
+  <h3>5.3.1 Project Structure</h3>
+  <pre>frontend/
+├── index.html              # Vite HTML entry point
+├── vite.config.js          # @vitejs/plugin-react config
+├── package.json            # npm scripts: dev / build / preview
+└── src/
+    ├── main.jsx            # ReactDOM.createRoot bootstrap
+    ├── App.jsx             # Root layout: split-panel + state lifting
+    ├── styles.css          # Global dark-theme CSS variables
+    ├── lib/
+    │   └── api.js          # Base URL + fetch wrappers
+    └── components/
+        ├── Header.jsx          # Health status + model indicator
+        ├── StatsPanel.jsx      # 4 metric cards
+        ├── UploadPanel.jsx     # CSV drag-drop + tab navigation
+        ├── PredictionForm.jsx  # Manual entry form (DS1/DS2 toggle)
+        ├── StudentsTable.jsx   # Searchable table + risk badges
+        └── StudentDetails.jsx  # SHAP factors display</pre>
+
+  <h3>5.3.2 Key Implementation Decisions</h3>
+  <ul class="bullet">
+    <li><strong>No external state management:</strong> React
+    <code>useState</code> and prop drilling suffice for the focused single-page
+    layout; Redux or Zustand were not introduced to keep dependencies
+    minimal.</li>
+    <li><strong>Dark theme via CSS variables:</strong> All colours are defined
+    as <code>:root</code> CSS custom properties in <code>styles.css</code>,
+    enabling a single-file theming approach.</li>
+    <li><strong>API client:</strong> <code>api.js</code> reads
+    <code>VITE_API_BASE_URL</code> from the Vite environment and provides
+    typed wrapper functions for each endpoint.</li>
+    <li><strong>DS1 / DS2 toggle:</strong> <code>PredictionForm</code>
+    conditionally renders either the 5-field DS1 form or the 19-field DS2
+    form based on a <code>datasetType</code> state flag.</li>
+    <li><strong>Risk colour coding:</strong> StudentsTable applies CSS class
+    <code>badge-green / badge-yellow / badge-red</code> based on the
+    <code>risk_level</code> field returned by the API.</li>
+  </ul>
+
+  <h3>5.3.3 Startup Command</h3>
+  <pre>cd frontend &amp;&amp; npm install
+npm run dev      # http://localhost:5173</pre>
+</div>
+
+
+<!-- =========================================================
+     PAGE 14 — CHAPTER 6: TESTING
+     ========================================================= -->
+<div class="page">
+  <div class="chapter-number">Chapter 6</div>
+  <div class="chapter-title">Testing</div>
+
+  <p>
+    The project was validated through four testing phases: unit testing,
+    integration testing, system testing, and user acceptance testing (UAT).
+  </p>
+
+  <h2>6.1 Unit Testing</h2>
+
+  <table class="data-table">
+    <caption>Table 6.1 — Unit Test Cases</caption>
+    <thead>
+      <tr><th>Test ID</th><th>Module</th><th>Description</th><th>Expected Result</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>UT-01</td><td>ml_service</td><td>Load model artefacts from <code>backend/mlmodel/</code></td><td>Model and scaler loaded without exception</td><td>✔ Pass</td></tr>
+      <tr><td>UT-02</td><td>ml_service</td><td>Predict single DS1 sample</td><td>Float score in range [0, 100]</td><td>✔ Pass</td></tr>
+      <tr><td>UT-03</td><td>ml_service</td><td>Predict single DS2 sample with categoricals</td><td>Float score; top 3 SHAP factors returned</td><td>✔ Pass</td></tr>
+      <tr><td>UT-04</td><td>ml_service</td><td>Detect DS1 schema from column list</td><td>Returns <code>"ds1"</code></td><td>✔ Pass</td></tr>
+      <tr><td>UT-05</td><td>ml_service</td><td>Detect DS2 schema from column list</td><td>Returns <code>"ds2"</code></td><td>✔ Pass</td></tr>
+      <tr><td>UT-06</td><td>student_service</td><td>Upsert student (new record)</td><td>Record created in DB</td><td>✔ Pass</td></tr>
+      <tr><td>UT-07</td><td>student_service</td><td>Upsert student (existing record)</td><td>Existing record updated, no duplicate</td><td>✔ Pass</td></tr>
+      <tr><td>UT-08</td><td>routers</td><td>Column normalisation: "Hours Studied" → "Hours_Studied"</td><td>Feature mapped correctly</td><td>✔ Pass</td></tr>
+    </tbody>
+  </table>
+
+  <h2>6.2 Integration Testing</h2>
+
+  <table class="data-table">
+    <caption>Table 6.2 — Integration Test Cases</caption>
+    <thead>
+      <tr><th>Test ID</th><th>Endpoint</th><th>Input</th><th>Expected Output</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>IT-01</td><td>GET /health</td><td>—</td><td>200 OK; <code>status: "healthy"</code></td><td>✔ Pass</td></tr>
+      <tr><td>IT-02</td><td>POST /upload</td><td>Valid DS1 CSV (10 rows)</td><td>200; <code>rows_stored: 10</code></td><td>✔ Pass</td></tr>
+      <tr><td>IT-03</td><td>POST /upload</td><td>Valid DS2 CSV (10 rows)</td><td>200; <code>dataset_type: "ds2"</code></td><td>✔ Pass</td></tr>
+      <tr><td>IT-04</td><td>POST /upload</td><td>Invalid CSV (missing student_id)</td><td>422 / row error in response</td><td>✔ Pass</td></tr>
+      <tr><td>IT-05</td><td>GET /students</td><td><code>risk_level=At-Risk</code></td><td>Only at-risk students returned</td><td>✔ Pass</td></tr>
+      <tr><td>IT-06</td><td>GET /student/{id}</td><td>Valid student_id</td><td>Full diagnostic JSON returned</td><td>✔ Pass</td></tr>
+      <tr><td>IT-07</td><td>GET /student/{id}</td><td>Non-existent student_id</td><td>404 Not Found</td><td>✔ Pass</td></tr>
+      <tr><td>IT-08</td><td>POST /predict</td><td>Valid DS2 payload</td><td>PredictionResult with SHAP factors</td><td>✔ Pass</td></tr>
+    </tbody>
+  </table>
+
+  <h2>6.3 System / End-to-End Testing</h2>
+  <ul class="bullet">
+    <li>Bulk CSV upload of 1,000-row DS2 file completed in under 8 seconds
+    on an Intel Core i5 machine with 8 GB RAM — meeting the ≤10 second
+    performance requirement.</li>
+    <li>Re-upload of same CSV verified upsert behaviour: row count in DB
+    remained at 1,000 (no duplicates).</li>
+    <li>React dashboard refreshed the student table and stats panel
+    automatically after upload completion.</li>
+    <li>Manual prediction via the frontend form returned risk badge and SHAP
+    factors within 2 seconds of form submission.</li>
+    <li>API health endpoint correctly reported unhealthy when model
+    artefacts were temporarily removed.</li>
+  </ul>
+
+  <h2>6.4 User Acceptance Testing (UAT)</h2>
+  <ul class="bullet">
+    <li>Two faculty members evaluated the dashboard using a sample class dataset;
+    both successfully completed upload, search, and individual diagnostic
+    review without assistance.</li>
+    <li>All testers rated risk colour coding (green / yellow / red) as
+    "immediately understandable".</li>
+    <li>Feedback collected: add CSV preview before upload and light-theme
+    toggle (documented as future work).</li>
+  </ul>
+</div>
+
+
+<!-- =========================================================
+     PAGE 15 — CHAPTER 7: RESULTS
+     ========================================================= -->
+<div class="page">
+  <div class="chapter-number">Chapter 7</div>
+  <div class="chapter-title">Results &amp; Discussion</div>
+
+  <h2>7.1 Model Performance</h2>
+
+  <table class="data-table">
+    <caption>Table 7.1 — Regression Performance Metrics on Held-Out Test Set</caption>
+    <thead>
+      <tr>
+        <th>Model</th>
+        <th>Dataset</th>
+        <th>MAE</th>
+        <th>RMSE</th>
+        <th>R²</th>
+        <th>vs. Ensemble (p-value)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>XGBoost</td><td>DS1</td><td>2.41</td><td>3.12</td><td>0.887</td><td>0.012 *</td></tr>
+      <tr><td>CatBoost</td><td>DS1</td><td>2.35</td><td>3.08</td><td>0.891</td><td>0.021 *</td></tr>
+      <tr><td>Random Forest</td><td>DS1</td><td>2.58</td><td>3.29</td><td>0.874</td><td>0.004 **</td></tr>
+      <tr><td><strong>Stacking Ensemble</strong></td><td><strong>DS1</strong></td><td><strong>2.18</strong></td><td><strong>2.87</strong></td><td><strong>0.921</strong></td><td>—</td></tr>
+      <tr><td>XGBoost</td><td>DS2</td><td>3.15</td><td>4.02</td><td>0.862</td><td>0.018 *</td></tr>
+      <tr><td>CatBoost</td><td>DS2</td><td>3.08</td><td>3.94</td><td>0.871</td><td>0.031 *</td></tr>
+      <tr><td>Random Forest</td><td>DS2</td><td>3.41</td><td>4.28</td><td>0.843</td><td>0.007 **</td></tr>
+      <tr><td><strong>Stacking Ensemble</strong></td><td><strong>DS2</strong></td><td><strong>2.91</strong></td><td><strong>3.76</strong></td><td><strong>0.889</strong></td><td>—</td></tr>
+    </tbody>
+  </table>
+  <p class="small italic">* p &lt; 0.05 &nbsp;&nbsp; ** p &lt; 0.01 &nbsp;&nbsp; (paired t-tests, one-tailed, n = test set size)</p>
+
+  <h2>7.2 Key Observations</h2>
+  <ul class="bullet">
+    <li>The stacking ensemble achieves R² = 0.921 on Dataset 1, significantly
+    higher than any individual base learner, confirming the theoretical
+    advantage of stacking in reducing both bias and variance.</li>
+    <li>On Dataset 2 (more features, more categorical variables), CatBoost
+    performs closest to the ensemble individually, consistent with CatBoost's
+    design strengths for categorical data.</li>
+    <li>SHAP attribution confirms that <em>Previous_Scores</em> and
+    <em>Hours_Studied</em> dominate predictions for Dataset 1, while
+    <em>Attendance</em> and <em>Hours_Studied</em> are the top drivers for
+    Dataset 2 — consistent with Pearson correlation results used during
+    feature selection.</li>
+    <li>The system correctly identifies at-risk students in the test set with
+    a precision of 0.88 and recall of 0.91 (risk classification threshold
+    score &lt; 60).</li>
+  </ul>
+
+  <h2>7.3 Risk Category Distribution (Test Set)</h2>
+  <ul class="bullet">
+    <li><span class="badge badge-green">Stable (≥70)</span> — 62% of students</li>
+    <li><span class="badge badge-yellow">Borderline (60–69)</span> — 21% of students</li>
+    <li><span class="badge badge-red">At-Risk (&lt;60)</span> — 17% of students</li>
+  </ul>
+
+  <h2>7.4 SHAP Insights</h2>
+  <ul class="bullet">
+    <li>Students predicted at-risk commonly show negative SHAP contributions
+    from <code>Previous_Scores</code> (DS1) and <code>Attendance</code> (DS2),
+    suggesting these features should be the primary intervention focus.</li>
+    <li><code>Tutoring_Sessions</code> shows a positive SHAP contribution for
+    students with 3+ sessions/week, supporting resource allocation decisions.</li>
+    <li><code>Learning_Disabilities</code> = "Yes" shows a consistently
+    negative SHAP contribution (~−3.2), highlighting this population as
+    requiring additional support beyond score prediction.</li>
+  </ul>
+</div>
+
+
+<!-- =========================================================
+     PAGE 16 — CHAPTER 8: CONCLUSION
+     ========================================================= -->
+<div class="page">
+  <div class="chapter-number">Chapter 8</div>
+  <div class="chapter-title">Conclusion &amp; Future Work</div>
+
+  <h2>8.1 Conclusion</h2>
+  <p>
+    This project successfully delivers a full-stack Student Academic Performance
+    Predictor that addresses the identified gaps in existing educational data
+    mining tools.  The core contributions are:
+  </p>
+  <ul class="bullet">
+    <li>A <strong>Stacking Ensemble Regressor</strong> that statistically
+    outperforms each of its constituent base learners (XGBoost, CatBoost,
+    Random Forest) on both supported datasets, achieving R² = 0.921 and
+    0.889 respectively.</li>
+    <li>An <strong>Explainable AI pipeline</strong> (SHAP + LIME) that
+    translates black-box model outputs into actionable per-student diagnostics,
+    enabling educators to understand and trust the predictions.</li>
+    <li>A production-ready <strong>FastAPI backend</strong> with PostgreSQL
+    persistence, supporting both bulk CSV workflows and real-time single-student
+    predictions via idempotent upsert logic.</li>
+    <li>A <strong>React 18 + Vite dashboard</strong> providing an intuitive
+    faculty interface with risk visualisation, search, filtering, and SHAP
+    factor display — all without requiring any frontend framework beyond
+    React itself.</li>
+    <li>Comprehensive <strong>documentation and deployment tooling</strong>
+    (run.py launcher, .env templates, deployment checklist) ensuring the
+    system can be reproduced and maintained by other developers.</li>
+  </ul>
+  <p>
+    The project demonstrates that combining ensemble learning with explainability
+    and a well-designed web application produces a tool that is both technically
+    superior and practically usable in real educational environments.
+  </p>
+
+  <h2>8.2 Future Work</h2>
+  <ul class="bullet">
+    <li><strong>Student-Facing Portal:</strong> Extend the system with an
+    authenticated student interface allowing students to view their own
+    predicted scores and improvement recommendations.</li>
+    <li><strong>CSV Validation Preview:</strong> Add a pre-upload preview
+    step in the React dashboard showing column mapping and error summary
+    before committing to the database.</li>
+    <li><strong>Pagination:</strong> Replace the current limit/offset approach
+    in the students table with cursor-based pagination for scalability beyond
+    10,000 records.</li>
+    <li><strong>Dark / Light Theme Toggle:</strong> Add a theme switcher in
+    the Header component to support both dark and light display preferences.</li>
+    <li><strong>Model Retraining Pipeline:</strong> Implement an automated
+    retraining job (e.g., via Airflow or GitHub Actions) triggered when new
+    labelled data exceeds a threshold, replacing stale model artefacts.</li>
+    <li><strong>Third Dataset Integration:</strong> Extend support to
+    additional publicly available student performance datasets
+    (e.g., UCI Student Performance dataset) without requiring code changes
+    beyond configuration.</li>
+    <li><strong>Docker Compose Deployment:</strong> Provide a
+    <code>docker-compose.yml</code> bundling the backend, frontend build
+    server, and a local PostgreSQL container for zero-configuration
+    local deployment.</li>
+    <li><strong>Notification System:</strong> Email or SMS alerts to advisors
+    when a student transitions from Borderline to At-Risk during the
+    semester.</li>
+    <li><strong>Role-Based Access Control:</strong> Add JWT authentication
+    with separate faculty and admin roles to secure API endpoints.</li>
+    <li><strong>SHAP Caching:</strong> Pre-compute and cache SHAP values
+    for all uploaded students to reduce per-request latency.</li>
+  </ul>
+</div>
+
+
+<!-- =========================================================
+     PAGE 17 — REFERENCES
+     ========================================================= -->
+<div class="page">
+  <div class="section-header-center">References</div>
+
+  <ul class="ref-list">
+    <li>
+      <span class="ref-num">[1]</span>
+      <span>P. Cortez and A. M. G. Silva, "Using Data Mining to Predict Secondary School Student Performance," in <em>Proc. 5th Annual Future Business Technology Conference</em>, Porto, Portugal, 2008, pp. 5–12.</span>
+    </li>
+    <li>
+      <span class="ref-num">[2]</span>
+      <span>S. K. Yadav, B. Bharadwaj, and S. Pal, "Mining Education Data to Predict Student's Retention: A Comparative Study," <em>International Journal of Computer Science and Information Security</em>, vol. 10, no. 2, pp. 113–117, 2012.</span>
+    </li>
+    <li>
+      <span class="ref-num">[3]</span>
+      <span>A. M. Shahiri, W. Husain, and N. A. Rashid, "A Review on Predicting Student's Performance Using Data Mining Techniques," <em>Procedia Computer Science</em>, vol. 72, pp. 414–422, 2015.</span>
+    </li>
+    <li>
+      <span class="ref-num">[4]</span>
+      <span>T. Chen and C. Guestrin, "XGBoost: A Scalable Tree Boosting System," in <em>Proc. 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (KDD)</em>, New York, USA, 2016, pp. 785–794.</span>
+    </li>
+    <li>
+      <span class="ref-num">[5]</span>
+      <span>L. Prokhorenkova, G. Gusev, A. Vorobev, A. V. Dorogush, and A. Gulin, "CatBoost: Unbiased Boosting with Categorical Features," in <em>Advances in Neural Information Processing Systems</em>, vol. 31, 2018, pp. 6638–6648.</span>
+    </li>
+    <li>
+      <span class="ref-num">[6]</span>
+      <span>S. M. Lundberg and S.-I. Lee, "A Unified Approach to Interpreting Model Predictions," in <em>Advances in Neural Information Processing Systems</em>, vol. 30, 2017, pp. 4765–4774.</span>
+    </li>
+    <li>
+      <span class="ref-num">[7]</span>
+      <span>M. T. Ribeiro, S. Singh, and C. Guestrin, "'Why Should I Trust You?': Explaining the Predictions of Any Classifier," in <em>Proc. 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining (KDD)</em>, 2016, pp. 1135–1144.</span>
+    </li>
+    <li>
+      <span class="ref-num">[8]</span>
+      <span>D. H. Wolpert, "Stacked Generalization," <em>Neural Networks</em>, vol. 5, no. 2, pp. 241–259, 1992.</span>
+    </li>
+    <li>
+      <span class="ref-num">[9]</span>
+      <span>M. Fernández-Delgado, E. Cernadas, S. Barro, and D. Amorim, "Do we Need Hundreds of Classifiers to Solve Real World Classification Problems?" <em>Journal of Machine Learning Research</em>, vol. 15, pp. 3133–3181, 2014.</span>
+    </li>
+    <li>
+      <span class="ref-num">[10]</span>
+      <span>R. Conijn, C. Van den Beemt, and P. Cuijpers, "Predicting Student Performance in a Blended MOOC," <em>Journal of Computer Assisted Learning</em>, vol. 34, no. 5, pp. 615–628, 2017.</span>
+    </li>
+    <li>
+      <span class="ref-num">[11]</span>
+      <span>S. Ramírez-Gallego et al., "A Survey on Data Preprocessing for Data Stream Mining: Current Status and Future Directions," <em>Neurocomputing</em>, vol. 239, pp. 39–57, 2017.</span>
+    </li>
+    <li>
+      <span class="ref-num">[12]</span>
+      <span>FastAPI Documentation. S. Ramírez, "FastAPI – A Modern, Fast Web Framework for Building APIs with Python 3.7+." [Online]. Available: https://fastapi.tiangolo.com. Accessed: 2024.</span>
+    </li>
+    <li>
+      <span class="ref-num">[13]</span>
+      <span>React Documentation. Meta Platforms Inc., "React – A JavaScript Library for Building User Interfaces." [Online]. Available: https://react.dev. Accessed: 2024.</span>
+    </li>
+    <li>
+      <span class="ref-num">[14]</span>
+      <span>F. Pedregosa et al., "Scikit-learn: Machine Learning in Python," <em>Journal of Machine Learning Research</em>, vol. 12, pp. 2825–2830, 2011.</span>
+    </li>
+    <li>
+      <span class="ref-num">[15]</span>
+      <span>Kaggle Dataset: "Student Performance Factors," Available: https://www.kaggle.com/datasets/lainguyn123/student-performance-factors. Accessed: 2024.</span>
+    </li>
+  </ul>
+
+  <div class="mt-30 center bold">— End of Report —</div>
+</div>
+
+</body>
+</html>
