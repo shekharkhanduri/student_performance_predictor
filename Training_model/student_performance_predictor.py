@@ -56,8 +56,14 @@ def _flush(msg=""):
 RANDOM_STATE = 42
 OUTPUT_DIR = "outputs"
 DATA_DIR = "data"
+MODEL_DIR = os.path.join("backend", "mlmodel")
+DS1_SCALER_PATH = os.path.join(MODEL_DIR, "scaler_ds1.joblib")
+DS2_SCALER_PATH = os.path.join(MODEL_DIR, "scaler_ds2.joblib")
+DS1_MODEL_EXPORT_PATH = os.path.join(MODEL_DIR, "model_ds1.joblib")
+DS2_MODEL_EXPORT_PATH = os.path.join(MODEL_DIR, "model_ds2.joblib")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(MODEL_DIR, exist_ok=True)
 
 # ─────────────────────────── Data Generation ──────────────────────────────────
 
@@ -203,6 +209,7 @@ def preprocess_dataset1(df: pd.DataFrame):
     features_scaled = pd.DataFrame(
         scaler.fit_transform(features), columns=features.columns
     )
+    joblib.dump(scaler, DS1_SCALER_PATH)
     return features_scaled, target, scaler, le
 
 
@@ -237,7 +244,13 @@ def preprocess_dataset2(df: pd.DataFrame):
 
     target = df[target_col].values.copy()
     features = df.drop(columns=[target_col])
-    return features, target
+
+    scaler = StandardScaler()
+    features_scaled = pd.DataFrame(
+        scaler.fit_transform(features), columns=features.columns
+    )
+    joblib.dump(scaler, DS2_SCALER_PATH)
+    return features_scaled, target, scaler
 
 
 # ─────────────────────────── Feature Selection ────────────────────────────────
@@ -677,9 +690,13 @@ def run_pipeline(
     results_summary = {}
     feat_idx = {name: i for i, name in enumerate(feature_names_all)}
 
+    # Selected-feature processing is intentionally disabled.
+    # for condition, feature_cols in [
+    #     ("all_features", feature_names_all),
+    #     ("selected_features", selected_features),
+    # ]:
     for condition, feature_cols in [
         ("all_features", feature_names_all),
-        ("selected_features", selected_features),
     ]:
         cond_label = f"{label_prefix} [{condition}]"
         cond_prefix = os.path.join(OUTPUT_DIR, f"{output_prefix}_{condition}")
@@ -845,9 +862,6 @@ def main() -> None:
     _flush("\n  Feature–Target Correlations (Dataset 1):")
     _flush(target_corr1.to_string())
 
-    # Per specification: retain Previous_Scores and Hours_Studied
-    selected1 = ["Previous_Scores", "Hours_Studied"]
-
     # Dataset 1-specific visualizations
     plot_extracurricular_pie(
         raw_df1, os.path.join(OUTPUT_DIR, "ds1_extracurricular_pie.png")
@@ -859,14 +873,19 @@ def main() -> None:
         raw_df1, os.path.join(OUTPUT_DIR, "ds1_sample_papers_vs_performance.png")
     )
 
-    run_pipeline(
+    ds1_summary = run_pipeline(
         X1, y1,
         list(X1.columns),
-        selected1,
+        selected_features=["Previous_Scores", "Hours_Studied"],
         label_prefix="Dataset 1",
         output_prefix="ds1",
         n_cv_splits=10,
     )
+    joblib.dump(
+        ds1_summary["all_features"]["stacking_regressor"],
+        DS1_MODEL_EXPORT_PATH,
+    )
+    _flush(f"  Exported DS1 model alias → {DS1_MODEL_EXPORT_PATH}")
 
     # ── Dataset 2 ──────────────────────────────────────────────────────────
     _flush("\n\n[DATASET 2]")
@@ -876,7 +895,7 @@ def main() -> None:
     missing_cols = missing_cols[missing_cols > 0]
     _flush(f"  Missing values before preprocessing:\n{missing_cols}")
 
-    X2, y2 = preprocess_dataset2(raw_df2)
+    X2, y2, _scaler2 = preprocess_dataset2(raw_df2)
     _flush(f"  Shape after preprocessing: {X2.shape}")
 
     target_corr2 = compute_correlations(
@@ -887,17 +906,20 @@ def main() -> None:
     _flush("\n  Top Feature–Target Correlations (Dataset 2):")
     _flush(target_corr2.head(5).to_string())
 
-    # Per specification: retain Attendance and Hours_Studied
-    selected2 = ["Attendance", "Hours_Studied"]
 
-    run_pipeline(
+    ds2_summary = run_pipeline(
         X2, y2,
         list(X2.columns),
-        selected2,
+        selected_features=["Attendance", "Hours_Studied"],
         label_prefix="Dataset 2",
         output_prefix="ds2",
         n_cv_splits=10,
     )
+    joblib.dump(
+        ds2_summary["all_features"]["stacking_regressor"],
+        DS2_MODEL_EXPORT_PATH,
+    )
+    _flush(f"  Exported DS2 model alias → {DS2_MODEL_EXPORT_PATH}")
 
     _flush("\n\n" + "=" * 70)
     _flush(f"  ✓  Done! Outputs saved in: {os.path.abspath(OUTPUT_DIR)}")
