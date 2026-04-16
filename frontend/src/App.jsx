@@ -30,8 +30,7 @@ function App() {
     try {
       const data = await getHealth();
       setHealth(data);
-    } catch (error) {
-      console.error("Health check failed:", error);
+    } catch {
       setHealth({ status: "error", model_loaded: false });
     } finally {
       setLoadingHealth(false);
@@ -43,8 +42,7 @@ function App() {
     try {
       const data = await getStudents({ limit: 200 });
       setStudents(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Fetch students failed:", error);
+    } catch {
       setStudents([]);
     } finally {
       setLoadingStudents(false);
@@ -52,9 +50,7 @@ function App() {
   }
 
   async function selectStudent(ref) {
-    if (!ref?.student_id) {
-      return;
-    }
+    if (!ref?.student_id) return;
     setSelectedStudentRef(ref);
     setLoadingStudent(true);
     setStudentError("");
@@ -74,6 +70,12 @@ function App() {
     refreshStudents();
   }, []);
 
+  const tabs = [
+    { id: "dashboard", label: "Dashboard", icon: "📊" },
+    { id: "predict", label: "Survey Form", icon: "📝" },
+    { id: "results", label: "All Results", icon: "📋", count: students.length },
+  ];
+
   return (
     <div className="app">
       <Header
@@ -82,28 +84,26 @@ function App() {
         loading={loadingHealth}
       />
 
-      <div className="tabs-nav">
-        <button
-          className={`tab-btn ${activeTab === "dashboard" ? "active" : ""}`}
-          onClick={() => setActiveTab("dashboard")}
-        >
-          📊 Dashboard
-        </button>
-        <button
-          className={`tab-btn ${activeTab === "predict" ? "active" : ""}`}
-          onClick={() => setActiveTab("predict")}
-        >
-          📝 Survey Form
-        </button>
-        <button
-          className={`tab-btn ${activeTab === "results" ? "active" : ""}`}
-          onClick={() => setActiveTab("results")}
-        >
-          📋 All Results ({students.length})
-        </button>
-      </div>
+      <nav className="tabs-nav" role="tablist">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            id={`tab-${tab.id}`}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <span className="tab-icon">{tab.icon}</span>
+            {tab.label}
+            {tab.count !== undefined && (
+              <span className="tab-count">{tab.count}</span>
+            )}
+          </button>
+        ))}
+      </nav>
 
-      <main className="main-content">
+      <main className="main-content" role="main">
         {activeTab === "dashboard" && (
           <DashboardTab
             students={students}
@@ -117,9 +117,7 @@ function App() {
         )}
 
         {activeTab === "predict" && (
-          <section className="card">
-            <h2>Shareable Student Survey</h2>
-            <p className="muted">Use dataset-specific forms and share links with faculty or students.</p>
+          <div style={{ maxWidth: "840px" }}>
             <PredictionForm
               initialDataset={initialDataset}
               onCreated={(ref) => {
@@ -127,39 +125,37 @@ function App() {
                 selectStudent(ref);
               }}
             />
-          </section>
+          </div>
         )}
 
         {activeTab === "results" && (
           <section>
             <StatsPanel students={students} />
-            <div className="card table-card">
-              <div className="table-head">
-                <h2>All Stored Students</h2>
-                <p className="muted">Click a row to view diagnostic details.</p>
-              </div>
-              <StudentsTable
-                students={students}
-                selectedId={selectedStudentRef}
-                onSelect={selectStudent}
-              />
-            </div>
+            <StudentsTable
+              students={students}
+              selectedId={selectedStudentRef}
+              onSelect={selectStudent}
+            />
             {selectedStudent && (
-              <div className="card">
-                <h3>Student Diagnostic</h3>
-                <StudentDetails
-                  student={selectedStudent}
-                  loading={loadingStudent}
-                  error={studentError}
-                />
-              </div>
+              <StudentDetails
+                student={selectedStudent}
+                loading={loadingStudent}
+                error={studentError}
+              />
             )}
           </section>
         )}
       </main>
 
       <footer className="footer">
-        <p>Faculty Student Diagnostic System • Ensemble ML + SHAP Explanations</p>
+        <p>© 2026 EduSight · Faculty Student Diagnostic System</p>
+        <div className="footer-tags">
+          <span className="footer-tag">XGBoost</span>
+          <span className="footer-tag">CatBoost</span>
+          <span className="footer-tag">RandomForest</span>
+          <span className="footer-tag">SHAP</span>
+          <span className="footer-tag">FastAPI</span>
+        </div>
       </footer>
     </div>
   );

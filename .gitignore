@@ -4,6 +4,7 @@ outputs/
 # Dataset directory (download from Kaggle and place here)
 data/
 
+Training_model/
 # CatBoost training logs
 catboost_info/
 
@@ -19,6 +20,8 @@ build/
 *.egg
 .eggs/
 .env
+.env.*
+!.env.example
 .venv
 env/
 venv/
@@ -32,6 +35,20 @@ venv/
 .idea/
 *.swp
 *.swo
+
+# Codespaces / local workspace noise
+.codespaces/
+.devcontainer/
+*.code-workspace
+
+# Local temp/context artifacts
+*.log
+*.tmp
+tmp/
+temp/
+context*.txt
+context*.md
+session*.log
 
 # OS
 .DS_Store

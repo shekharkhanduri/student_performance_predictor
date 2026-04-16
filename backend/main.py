@@ -1,86 +1,110 @@
-"""FastAPI application bootstrap for the Faculty Student Diagnostic System."""
+"""FastAPI application bootstrap for the Faculty Student Diagnostic System.
+
+Startup sequence (lifespan):
+  1. Load models + scalers into app.state  (eliminates cold-start on first request)
+  2. Create DB tables if they do not exist
+  3. Run idempotent schema migrations      (new columns, index backfills)
+
+All routes are mounted under /api/v1 for versioning.
+"""
 
 import warnings
 from contextlib import asynccontextmanager
 
+import joblib
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import inspect, text
 
 from backend.api.routers.health import router as health_router
 from backend.api.routers.students import router as students_router
+from backend.core.config import (
+    API_V1_PREFIX,
+    DS1_MODEL_PATH,
+    DS1_SCALER_PATH,
+    DS2_MODEL_PATH,
+    DS2_SCALER_PATH,
+)
 from backend.core.database import Base, engine
-
-
-def _ensure_student_id_column(table_name: str) -> None:
-    """Backfill legacy tables created before student_id existed."""
-    with engine.begin() as conn:
-        inspector = inspect(conn)
-        if not inspector.has_table(table_name):
-            return
-
-        column_names = {c["name"] for c in inspector.get_columns(table_name)}
-        if "student_id" in column_names:
-            return
-
-        conn.execute(text(f'ALTER TABLE "{table_name}" ADD COLUMN student_id INTEGER'))
-        conn.execute(text(f'UPDATE "{table_name}" SET student_id = id WHERE student_id IS NULL'))
-
-        # Keep writes fast and enforce uniqueness for upsert-style student updates.
-        conn.execute(
-            text(
-                f'CREATE UNIQUE INDEX IF NOT EXISTS '
-                f'ix_{table_name}_student_id ON "{table_name}" (student_id)'
-            )
-        )
-
-
-def _ensure_primary_key_and_student_id_uniqueness(table_name: str) -> None:
-    """Ensure id is the primary key and student_id is unique (not PK)."""
-    with engine.begin() as conn:
-        inspector = inspect(conn)
-        if not inspector.has_table(table_name):
-            return
-
-        column_names = {c["name"] for c in inspector.get_columns(table_name)}
-        if "id" not in column_names or "student_id" not in column_names:
-            return
-
-        pk_info = inspector.get_pk_constraint(table_name) or {}
-        pk_columns = pk_info.get("constrained_columns") or []
-        pk_name = pk_info.get("name")
-
-        # If an old schema used student_id as PK, convert PK to id.
-        if pk_columns != ["id"]:
-            if pk_name:
-                conn.execute(text(f'ALTER TABLE "{table_name}" DROP CONSTRAINT "{pk_name}"'))
-            conn.execute(text(f'ALTER TABLE "{table_name}" ADD PRIMARY KEY (id)'))
-
-        conn.execute(text(f'UPDATE "{table_name}" SET student_id = id WHERE student_id IS NULL'))
-        conn.execute(text(f'ALTER TABLE "{table_name}" ALTER COLUMN student_id SET NOT NULL'))
-        conn.execute(
-            text(
-                f'CREATE UNIQUE INDEX IF NOT EXISTS '
-                f'ix_{table_name}_student_id ON "{table_name}" (student_id)'
-            )
-        )
+from backend.core.migrations import run_migrations
+from backend.services.ml_service import build_explainer
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # ── 1. Prewarm models (eliminates cold-start latency on first request) ──
     try:
-        Base.metadata.create_all(bind=engine)
-        _ensure_student_id_column("student_data_ds1")
-        _ensure_student_id_column("student_data_ds2")
-        _ensure_primary_key_and_student_id_uniqueness("student_data_ds1")
-        _ensure_primary_key_and_student_id_uniqueness("student_data_ds2")
+        app.state.models = {
+            "ds1": joblib.load(DS1_MODEL_PATH),
+            "ds2": joblib.load(DS2_MODEL_PATH),
+        }
+        app.state.scalers = {
+            "ds1": joblib.load(DS1_SCALER_PATH),
+            "ds2": joblib.load(DS2_SCALER_PATH),
+        }
+        # Build the fastest available SHAP explainer for each dataset.
+        # TreeExplainer (ms-level) is selected when a tree-based base estimator
+        # is found inside the stacking regressor; otherwise falls back to a
+        # small-background KernelExplainer.
+        app.state.explainers = {
+            "ds1": build_explainer(app.state.models["ds1"], "ds1"),
+            "ds2": build_explainer(app.state.models["ds2"], "ds2"),
+        }
     except Exception as exc:  # noqa: BLE001
         warnings.warn(
-            f"Could not create database tables: {exc}. "
-            "Ensure DATABASE_URL is set correctly and the database is reachable.",
+            f"Could not load ML models: {exc}. "
+            "Prediction endpoints will return 503 until models are available.",
             RuntimeWarning,
             stacklevel=2,
         )
+        app.state.models = {}
+        app.state.scalers = {}
+
+    # ── 2. Database bootstrap + migrations ──────────────────────────────────
+    try:
+        Base.metadata.create_all(bind=engine)
+        run_migrations(engine)
+    except Exception as exc:  # noqa: BLE001
+        warnings.warn(
+            f"Database setup failed: {exc}. "
+            "Ensure DATABASE_URL is set and the database is reachable.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    # ── 3. Mark stale-pending SHAP records as failed ────────────────────────
+    # Any record left as shap_status='pending' across a server restart will
+    # never complete — its background task was killed when the process died.
+    # Mark them as 'failed' immediately so the frontend stops polling.
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        from backend.core.database import SessionLocal
+        from backend.models import StudentDataDS1, StudentDataDS2
+
+        _stale_cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+        with SessionLocal() as db:
+            for _model_class in (StudentDataDS1, StudentDataDS2):
+                _stale = (
+                    db.query(_model_class)
+                    .filter(
+                        _model_class.shap_status == "pending",
+                        _model_class.created_at < _stale_cutoff,
+                    )
+                    .all()
+                )
+                if _stale:
+                    warnings.warn(
+                        f"Marking {len(_stale)} stale-pending {_model_class.__tablename__} records as 'failed'.",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+                for _row in _stale:
+                    _row.shap_status = "failed"
+                    _row.updated_at = datetime.now(timezone.utc)
+            db.commit()
+    except Exception as exc:  # noqa: BLE001
+        warnings.warn(f"Stale-pending cleanup failed: {exc}", RuntimeWarning, stacklevel=2)
+
     yield
 
 
@@ -88,9 +112,9 @@ app = FastAPI(
     title="Faculty Student Diagnostic System",
     description=(
         "Predict student exam risk using a Stacking Ensemble model "
-        "(XGBoost + CatBoost + RandomForest + LassoCV) with SHAP explanations."
+        "(XGBoost + CatBoost + RandomForest + LassoCV) with background SHAP explanations."
     ),
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -102,10 +126,12 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(health_router)
-app.include_router(students_router)
+# All routes are versioned under /api/v1
+app.include_router(health_router, prefix=API_V1_PREFIX)
+app.include_router(students_router, prefix=API_V1_PREFIX)

@@ -1,10 +1,12 @@
-"""Request and response schemas for prediction endpoints."""
+"""Pydantic request / response schemas for prediction endpoints."""
 
 from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+
+# ── Feature lists (mirrors ml_service constants) ─────────────────────────────
 
 _DS1_REQUIRED = [
     "Hours_Studied",
@@ -53,19 +55,27 @@ _DS2_ALLOWED_VALUES: dict[str, set[str]] = {
 }
 
 
+# ── Request schema ────────────────────────────────────────────────────────────
+
 class PredictRequest(BaseModel):
-    student_id: int = Field(..., gt=0, description="Unique student identifier")
+    """
+    Single-student prediction request.
+
+    student_id is optional. If supplied, it is used as the stored student ID.
+    """
+
     dataset_type: Literal["ds1", "ds2"] = "ds2"
+    student_id: int | None = Field(default=None, ge=1)
     student_name: str | None = None
 
-    # Dataset 1
+    # Dataset 1 fields
     Hours_Studied: float | None = Field(default=None, ge=0)
     Previous_Scores: float | None = Field(default=None, ge=0, le=100)
     Extracurricular_Activities: str | None = None
     Sleep_Hours: float | None = Field(default=None, ge=0)
     Sample_Question_Papers_Practiced: float | None = Field(default=None, ge=0)
 
-    # Dataset 2
+    # Dataset 2 fields
     Attendance: float | None = Field(default=None, ge=0, le=100)
     Gender: str | None = None
     Parental_Involvement: str | None = None
@@ -93,8 +103,10 @@ class PredictRequest(BaseModel):
             raise ValueError(
                 f"Missing required features for {self.dataset_type}: {', '.join(missing)}"
             )
-
-        if self.Extracurricular_Activities is not None and self.Extracurricular_Activities not in {"Yes", "No"}:
+        if (
+            self.Extracurricular_Activities is not None
+            and self.Extracurricular_Activities not in {"Yes", "No"}
+        ):
             raise ValueError("Extracurricular_Activities must be one of: Yes, No")
 
         if self.dataset_type == "ds2":
@@ -103,11 +115,12 @@ class PredictRequest(BaseModel):
                 if value is None:
                     continue
                 if value not in allowed:
-                    allowed_text = ", ".join(sorted(allowed))
-                    raise ValueError(f"{key} must be one of: {allowed_text}")
+                    raise ValueError(f"{key} must be one of: {', '.join(sorted(allowed))}")
 
         return self
 
+
+# ── Response schemas ──────────────────────────────────────────────────────────
 
 class ShapFactor(BaseModel):
     feature: str
@@ -115,30 +128,50 @@ class ShapFactor(BaseModel):
 
 
 class PredictionResult(BaseModel):
+    """Returned immediately from POST /predict (SHAP included — single call is fast)."""
+
     student_id: int | None = None
     dataset_type: Literal["ds1", "ds2"] | None = None
     student_name: str | None = None
     predicted_exam_score: float
     risk_level: str
+    shap_status: str = "done"
     top_negative_factors: list[ShapFactor]
     created_at: datetime | None = None
 
 
 class StudentDiagnostic(BaseModel):
+    """
+    Full student record returned from GET /student/{id} and GET /students.
+
+    shap_status reflects whether SHAP computation has completed.
+    Frontend should poll GET /student/{id} while shap_status == 'pending'.
+    """
+
     student_id: int
     dataset_type: Literal["ds1", "ds2"] | None = None
     student_name: str | None = None
     predicted_exam_score: float
     risk_level: str
+    shap_status: str = "pending"
     top_negative_factors: list[Any]
     created_at: datetime | None = None
+    updated_at: datetime | None = None
     features: dict[str, Any] | None = None
 
 
 class UploadSummary(BaseModel):
+    """
+    Returned immediately (HTTP 202) from POST /upload.
+
+    SHAP computation continues as a background task.  Poll individual
+    GET /student/{id} responses to check shap_status.
+    """
+
     rows_processed: int
     rows_stored: int
     dataset_type: Literal["ds1", "ds2"]
     batch_id: str
     student_ids: list[int]
+    shap_status: str = "pending"   # SHAP is being computed after this response
     errors: list[str] = []

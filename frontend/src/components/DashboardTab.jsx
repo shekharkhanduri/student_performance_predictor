@@ -20,17 +20,11 @@ function DashboardTab({
       </div>
 
       <div className="col col-right">
-        <div className="card table-card">
-          <div className="table-head">
-            <h3>Recent Students</h3>
-            <p className="muted">Click to view diagnostics.</p>
-          </div>
-          <StudentsTable
-            students={students}
-            selectedId={selectedStudentId}
-            onSelect={onSelectStudent}
-          />
-        </div>
+        <StudentsTable
+          students={students}
+          selectedId={selectedStudentId}
+          onSelect={onSelectStudent}
+        />
         <StudentDetails
           student={selectedStudent}
           loading={loadingStudent}
